@@ -11,7 +11,6 @@ type Config struct {
 	GENAI_API_KEY            string `json:"GENAI_API_KEY"`
 	GENAI_MODEL_ID           string `json:"GENAI_MODEL_ID"`
 	GENAI_SYSTEM_INSTRUCTION string `json:"GENAI_SYSTEM_INSTRUCTION"`
-	CLIENT_JID               string `json:"CLIENT_JID"`
 }
 
 //go:embed config.json
@@ -38,9 +37,16 @@ func GetConfig(key string) (string, error) {
 		return config.GENAI_MODEL_ID, nil
 	case "GENAI_SYSTEM_INSTRUCTION":
 		return config.GENAI_SYSTEM_INSTRUCTION, nil
-	case "CLIENT_JID":
-		return config.CLIENT_JID, nil
 	default:
 		return "", fmt.Errorf("key %s not found in configuration", key)
+	}
+}
+
+func PanicIfError(message string, err error) {
+	if err != nil {
+		if message != "" {
+			fmt.Println(message, err)
+		}
+		panic(err)
 	}
 }

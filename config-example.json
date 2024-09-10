@@ -1,6 +1,5 @@
 {
     "GENAI_API_KEY": "",
     "GENAI_MODEL_ID": "",
-    "GENAI_SYSTEM_INSTRUCTION":"",
-    "CLIENT_JID": ""
+    "GENAI_SYSTEM_INSTRUCTION":""
 }
