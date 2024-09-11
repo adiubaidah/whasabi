@@ -38,10 +38,10 @@ func InsertHistory(db *sql.DB, senderId, recipientId, content, role string) erro
 func GetHistory(db *sql.DB, senderId string, recipientId string) (*[]History, error) {
 	query := `SELECT id, sender, recipient, content, role, createdAt
     FROM history  
-    WHERE sender = ? 
-       OR recipient = ? OR sender = ? OR recipient = ?
+    WHERE (sender = ? AND recipient = ?) 
+       OR (sender = ? AND recipient = ?)
     ORDER BY createdAt ASC;`
-	rows, err := db.Query(query, senderId, recipientId, senderId, recipientId)
+	rows, err := db.Query(query, senderId, recipientId, recipientId, senderId)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,6 @@ func GetHistory(db *sql.DB, senderId string, recipientId string) (*[]History, er
 	}
 	return &histories, nil
 }
-
 func DeleteOldHistory(db *sql.DB) error {
 	query := `DELETE FROM history WHERE createdAt < datetime('now', '-1 hour')`
 	_, err := db.Exec(query)

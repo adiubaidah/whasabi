@@ -57,6 +57,7 @@ func getAiReponse(db *sql.DB, sender string, input string) (string, string, erro
 	getHistory, err := GetHistory(db, sender, client.Store.ID.String())
 	PanicIfError("Error saat mengambil riwayat:", err)
 	for _, history := range *getHistory {
+		fmt.Println("Riwayat:", history)
 		sessionHistory = append(sessionHistory, &genai.Content{
 			Role:  history.Role,
 			Parts: []genai.Part{genai.Text(history.Content)},
@@ -65,9 +66,7 @@ func getAiReponse(db *sql.DB, sender string, input string) (string, string, erro
 
 	// session.
 	session := model.StartChat()
-	if len(sessionHistory) > 0 {
-		session.History = sessionHistory
-	}
+	session.History = sessionHistory
 
 	resp, err := session.SendMessage(ctx, genai.Text(input))
 

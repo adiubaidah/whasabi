@@ -26,7 +26,7 @@ func GetAIModel() (*genai.GenerativeModel, *genai.Client) {
 
 	// Set model parameters
 	model := aiClient.GenerativeModel(modelID)
-	model.SetTemperature(1.8)
+	model.SetTemperature(0.9)
 	model.SetTopK(64)
 	model.SetTopP(0.95)
 	model.SetMaxOutputTokens(8192)
