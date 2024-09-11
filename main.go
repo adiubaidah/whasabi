@@ -53,10 +53,7 @@ func getAiReponse(db *sql.DB, sender string, input string) (string, string, erro
 	model, aiClient := GetAIModel()
 	defer aiClient.Close() // Tutup klien AI setelah selesai mengirim pesan agar tidak membuang sumber daya
 
-	// session.
-	session := model.StartChat()
 	var sessionHistory []*genai.Content
-
 	getHistory, err := GetHistory(db, sender, client.Store.ID.String())
 	PanicIfError("Error saat mengambil riwayat:", err)
 	for _, history := range *getHistory {
@@ -65,12 +62,17 @@ func getAiReponse(db *sql.DB, sender string, input string) (string, string, erro
 			Parts: []genai.Part{genai.Text(history.Content)},
 		})
 	}
+
+	// session.
+	session := model.StartChat()
 	if len(sessionHistory) > 0 {
 		session.History = sessionHistory
 	}
 
 	resp, err := session.SendMessage(ctx, genai.Text(input))
+
 	PanicIfError("Error saat mengambil respon:", err)
+
 	return string(resp.Candidates[0].Content.Parts[0].(genai.Text)), client.Store.ID.String(), nil
 
 }
