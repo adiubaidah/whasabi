@@ -1,5 +1,5 @@
-qr.png
-config.json
 adi-bot.exe
-history.db
+session/*
+public/*
 log.db
+.env
