@@ -1,6 +1,7 @@
 package app
 
 import (
+	"adiubaidah/adi-bot/helper"
 	"context"
 	"sync"
 
@@ -22,7 +23,7 @@ type AiModelOption struct {
 
 func GetAIClient(context context.Context) *genai.Client {
 
-	apiKey := GetEnv("AI_API_KEY")
+	apiKey := helper.GetEnv("AI_API_KEY")
 
 	once.Do(func() {
 		aiClientInstance, _ = genai.NewClient(context, option.WithAPIKey(apiKey)) // Inisialisasi client AI
@@ -31,7 +32,7 @@ func GetAIClient(context context.Context) *genai.Client {
 }
 
 func GetAIModel(client *genai.Client, option *AiModelOption) *genai.GenerativeModel {
-	modelID := GetEnv("AI_MODEL_ID")
+	modelID := helper.GetEnv("AI_MODEL_ID")
 	model := client.GenerativeModel(modelID)
 	model.SetTemperature(*model.Temperature)
 	model.SetTopK(option.TopK)

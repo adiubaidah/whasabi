@@ -3,3 +3,6 @@ session/*
 public/*
 log.db
 .env
+
+db/migrations/
+migration.sh

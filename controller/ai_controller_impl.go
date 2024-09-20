@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/julienschmidt/httprouter"
+	"go.mau.fi/whatsmeow/types/events"
 )
 
 var activeRoutines = make(map[string]chan struct{})
@@ -43,8 +44,23 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 		waActive := a.WaService.Activate(request.Context(), aiRequest.Phone)
 
 		// If WhatsApp is authenticated, proceed to activate AI
-		if waActive {
+		if waActive.IsAuthenticated {
 			// Ensure only one instance per user
+			waActive.WaClient.AddEventHandler(func(evt any) {
+				switch v := evt.(type) {
+				case *events.Message:
+					if v.Info.IsGroup {
+						return
+					}
+
+					if v.Info.Timestamp.After(waActive.StartTime) {
+						// handleIncomingMessage(v, db)
+						fmt.Println("Pesan timestamp:", v.Info.Timestamp)
+						fmt.Println("Pesan baru", v.Message.GetConversation())
+					}
+				}
+			})
+
 			mu.Lock()
 			if _, exists := activeRoutines[aiRequest.Phone]; !exists {
 				// Create AI Model
@@ -62,11 +78,9 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 							return
 						default:
 
-							histories, err := a.HistorService.GetHistory("6285232517546", aiRequest.Phone)
+							// histories, err := a.HistorService.GetHistory(waActive.WaClient.Store.ID.String(), aiRequest.Phone)
 							helper.PanicIfError("Error getting history", err)
-							fmt.Println(histories)
 
-							// a.AiService.GenerateResponse(request.Context(), model, histories, "Hai Adi")
 						}
 					}
 				}()

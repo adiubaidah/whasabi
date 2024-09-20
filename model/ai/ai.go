@@ -1,9 +1,21 @@
 package ai
 
+import "time"
+
 type Ai struct {
-	Phone       string  `json:"id"`
-	Instruction string  `json:"instruction" validate:"required"`
-	TopK        int32   `json:"topK" validate:"required"`
-	TopP        float32 `json:"topP" validate:"required"`
-	Temperature float64 `json:"temperature" validate:"required"`
+	ID              uint      `gorm:"primaryKey"`
+	UserID          uint      `gorm:"not null"`
+	Name            string    `gorm:"not null"`
+	Phone           string    `gorm:"not null;unique"`
+	Instruction     string    `gorm:"not null"`
+	Temperature     float64   `gorm:"type:float;not null"`
+	TopK            int32     `gorm:"column:top_k;type:int"`
+	TopP            float32   `gorm:"column:top_p;type:float"`
+	IsActive        bool      `gorm:"default:false"`
+	IsAuthenticated bool      `gorm:"default:false"`
+	CreatedAt       time.Time `gorm:"default:autoCreateTime"`
+}
+
+func (ai *Ai) TableName() string {
+	return "services"
 }

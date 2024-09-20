@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
@@ -15,6 +16,7 @@ type UserWaStatus struct {
 	WaClient        *whatsmeow.Client
 	IsActive        bool
 	IsAuthenticated bool
+	StartTime       time.Time
 }
 
 type WaServiceImpl struct {
@@ -30,12 +32,12 @@ func NewWaService() WaService {
 }
 
 // Function to activate WhatsApp and AI for a user
-func (s *WaServiceImpl) Activate(ctx context.Context, phone string) bool {
+func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatus {
 	// If the service is already active, no need to activate again
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if status, exists := s.UserStatusMap[phone]; exists && status.IsActive {
-		return status.IsAuthenticated
+		return status
 	}
 
 	// Initialize a new status if it doesn't exist
@@ -43,6 +45,7 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) bool {
 		WaClient:        app.GetWaClient(phone),
 		IsActive:        false,
 		IsAuthenticated: false,
+		StartTime:       time.Now(),
 	}
 
 	// Set the current status variable for convenience
@@ -60,7 +63,7 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) bool {
 		status.IsActive = true
 	}
 
-	return status.IsAuthenticated
+	return status
 }
 
 // handleQRCodeAuthentication manages the WhatsApp authentication process using QR code

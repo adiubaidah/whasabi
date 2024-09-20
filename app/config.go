@@ -11,7 +11,3 @@ func Init() {
 		panic(err)
 	}
 }
-
-func GetEnv(key string) string {
-	return viper.GetString(key)
-}

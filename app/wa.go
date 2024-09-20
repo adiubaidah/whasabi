@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
