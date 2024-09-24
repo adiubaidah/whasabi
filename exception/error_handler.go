@@ -18,10 +18,18 @@ func ErrorHandler(writer http.ResponseWriter, request *http.Request, err interfa
 		return
 	}
 
+	if notAuthorizedError(writer, request, err) {
+		return
+	}
+
+	if forbiddenError(writer, request, err) {
+		return
+	}
+
 	internalServerError(writer, request, err)
 }
 
-func validationErrors(writer http.ResponseWriter, request *http.Request, err interface{}) bool {
+func validationErrors(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
 	exception, ok := err.(validator.ValidationErrors) //if convertion is success, ok will be true
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
@@ -40,7 +48,7 @@ func validationErrors(writer http.ResponseWriter, request *http.Request, err int
 	}
 }
 
-func notFoundError(writer http.ResponseWriter, request *http.Request, err interface{}) bool {
+func notFoundError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
 	exception, ok := err.(NotFoundError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
@@ -59,7 +67,45 @@ func notFoundError(writer http.ResponseWriter, request *http.Request, err interf
 	}
 }
 
-func internalServerError(writer http.ResponseWriter, request *http.Request, err interface{}) {
+func notAuthorizedError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
+	exception, ok := err.(UnauthorizedError)
+	if ok {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusUnauthorized)
+
+		webResponse := model.WebResponse{
+			Code:   http.StatusUnauthorized,
+			Status: "UNAUTHORIZED",
+			Data:   exception.Error,
+		}
+
+		helper.WriteToResponseBody(writer, webResponse)
+		return false
+	} else {
+		return true
+	}
+}
+
+func forbiddenError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
+	exception, ok := err.(ForbiddenError)
+	if ok {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusForbidden)
+
+		webResponse := model.WebResponse{
+			Code:   http.StatusForbidden,
+			Status: "FORBIDDEN",
+			Data:   exception.Error,
+		}
+
+		helper.WriteToResponseBody(writer, webResponse)
+		return false
+	} else {
+		return true
+	}
+}
+
+func internalServerError(writer http.ResponseWriter, _ *http.Request, err interface{}) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusInternalServerError)
 

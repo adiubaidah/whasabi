@@ -1,10 +1,12 @@
-package ai
+package model
 
-import "time"
+import (
+	"time"
+)
 
 type Ai struct {
 	ID              uint      `gorm:"primaryKey"`
-	UserID          uint      `gorm:"not null"`
+	UserID          uint      `gorm:"column:user_id;not null"`
 	Name            string    `gorm:"not null"`
 	Phone           string    `gorm:"not null;unique"`
 	Instruction     string    `gorm:"not null"`
@@ -14,8 +16,18 @@ type Ai struct {
 	IsActive        bool      `gorm:"default:false"`
 	IsAuthenticated bool      `gorm:"default:false"`
 	CreatedAt       time.Time `gorm:"default:autoCreateTime"`
+	User            *User     `gorm:"foreignKey:user_id;references:id"`
 }
 
 func (ai *Ai) TableName() string {
 	return "services"
+}
+
+type AiConfiguration struct {
+	Name        string  `json:"name" validate:"required"`
+	Phone       string  `json:"phone" validate:"required,number"`
+	Instruction string  `json:"instruction" validate:"required"`
+	TopK        int32   `json:"topK" validate:"required,number"`
+	TopP        float32 `json:"topP" validate:"required,number"`
+	Temperature float64 `json:"temperature" validate:"required"`
 }

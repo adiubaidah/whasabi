@@ -1,32 +1,32 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/model/history"
+	"adiubaidah/adi-bot/model"
 
 	"gorm.io/gorm"
 )
 
 type HistoryServiceImpl struct {
-	db *gorm.DB
+	DB *gorm.DB
 }
 
-func NewHistoryService(db *gorm.DB) HistoryService {
-	return &HistoryServiceImpl{db: db}
+func NewHistoryService(DB *gorm.DB) HistoryService {
+	return &HistoryServiceImpl{DB: DB}
 }
 
 func (s *HistoryServiceImpl) InsertHistory(senderId, receiver, content, role string) error {
-	history := history.History{
+	history := model.History{
 		Sender:   senderId,
 		Receiver: receiver,
 		Content:  content,
 		RoleAs:   role,
 	}
-	return s.db.Create(&history).Error
+	return s.DB.Create(&history).Error
 }
 
-func (s *HistoryServiceImpl) GetHistory(senderId string, recipientId string) (*[]history.History, error) {
-	var histories []history.History
-	err := s.db.Where("(sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)", senderId, recipientId, recipientId, senderId).
+func (s *HistoryServiceImpl) GetHistory(senderId string, recipientId string) (*[]model.History, error) {
+	var histories []model.History
+	err := s.DB.Where("(sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)", senderId, recipientId, recipientId, senderId).
 		Order("created_at ASC").
 		Find(&histories).Error
 	return &histories, err

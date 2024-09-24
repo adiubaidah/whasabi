@@ -2,6 +2,7 @@ package service
 
 import (
 	"adiubaidah/adi-bot/app"
+	"adiubaidah/adi-bot/helper"
 	"context"
 	"fmt"
 	"sync"
@@ -9,11 +10,13 @@ import (
 
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/store/sqlstore"
 )
 
 // Struct for storing user service status
 type UserWaStatus struct {
 	WaClient        *whatsmeow.Client
+	Container       *sqlstore.Container
 	IsActive        bool
 	IsAuthenticated bool
 	StartTime       time.Time
@@ -40,9 +43,13 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatu
 		return status
 	}
 
+	waClient, container := app.GetWaClient(phone)
+	err := waClient.Connect()
+	helper.PanicIfError("Error connecting to WhatsApp", err)
 	// Initialize a new status if it doesn't exist
 	s.UserStatusMap[phone] = &UserWaStatus{
-		WaClient:        app.GetWaClient(phone),
+		WaClient:        waClient,
+		Container:       container,
 		IsActive:        false,
 		IsAuthenticated: false,
 		StartTime:       time.Now(),
@@ -51,16 +58,12 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatu
 	// Set the current status variable for convenience
 	status := s.UserStatusMap[phone]
 	status.IsAuthenticated = status.WaClient.Store.ID != nil
+	status.IsActive = true
 	fmt.Println("Wa Status", status.IsAuthenticated)
 
 	// If not authenticated, handle the authentication process
 	if !status.IsAuthenticated {
 		s.handleQRCodeAuthentication(ctx, phone, status)
-	}
-
-	// Mark service as active once authenticated
-	if status.IsAuthenticated {
-		status.IsActive = true
 	}
 
 	return status
@@ -69,14 +72,13 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatu
 // handleQRCodeAuthentication manages the WhatsApp authentication process using QR code
 func (s *WaServiceImpl) handleQRCodeAuthentication(ctx context.Context, phone string, status *UserWaStatus) {
 	qrChan, _ := status.WaClient.GetQRChannel(ctx)
-
+	fmt.Println("Hanlde Qr Code")
 	go func() {
 		for evt := range qrChan {
 			switch evt.Event {
 			case "code":
 				err := qrcode.WriteFile(evt.Code, qrcode.Medium, 256, "public/qr"+phone+".png")
 				if err != nil {
-					fmt.Println("Failed to generate QR code:", err)
 				} else {
 					fmt.Printf("QR code generated for phone %s. Scan it using WhatsApp!\n", phone)
 				}
@@ -92,6 +94,7 @@ func (s *WaServiceImpl) handleQRCodeAuthentication(ctx context.Context, phone st
 	}()
 }
 
+// CheckActivation checks if WhatsApp service is active for the given phone number
 func (s *WaServiceImpl) Deactivate(ctx context.Context, phone string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -99,12 +102,15 @@ func (s *WaServiceImpl) Deactivate(ctx context.Context, phone string) bool {
 	// Check if status exists and deactivate the service
 	if status, exists := s.UserStatusMap[phone]; exists {
 		status.IsActive = false
+		status.WaClient.Disconnect()
+		err := status.Container.Close()
+		helper.PanicIfError("Error closing SQL container", err)
+		// Here, cancel any active context or Goroutines related to this phone number
 		return true
 	}
 	return false
 }
 
-// CheckActivation checks if WhatsApp service is active for the given phone number
 func (s *WaServiceImpl) CheckActivation(ctx context.Context, phone string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

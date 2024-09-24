@@ -23,13 +23,16 @@ func main() {
 
 	aiClient := app.GetAIClient(context)
 	waService := service.NewWaService()
-	aiService := service.NewAiService(aiClient, validate)
-	// authService := service.NewAuthService(db, validate)
+	aiService := service.NewAiService(aiClient, db, validate)
+	authService := service.NewAuthService(db, validate)
 	historyService := service.NewHistoryService(db)
+	userService := service.NewUserService(db, validate)
 
 	aiController := controller.NewAiController(waService, aiService, historyService, validate)
+	authController := controller.NewAuthController(authService)
+	userController := controller.NewUserController(userService)
 
-	router := routes.SetupRouter(aiController)
+	router := routes.SetupRouter(aiController, userController, authController)
 
 	server := http.Server{
 		Addr:    "localhost:3000",

@@ -1,11 +1,11 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/model/user"
+	"adiubaidah/adi-bot/model"
 	"context"
 )
 
 type AuthService interface {
-	Login(ctx context.Context, request user.UserLoginRequest) (string, error)
-	Logout(ctx context.Context, request user.UserLogoutRequest) error
+	Login(ctx context.Context, request model.UserLoginRequest) string
+	Logout(ctx context.Context, request model.UserLogoutRequest) error
 }

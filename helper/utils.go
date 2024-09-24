@@ -29,7 +29,6 @@ func WriteToResponseBody(writer http.ResponseWriter, response interface{}) {
 	err := encoder.Encode(response)
 	PanicIfError("", err)
 }
-
 func GetEnv(key string) string {
 	return viper.GetString(key)
 }
