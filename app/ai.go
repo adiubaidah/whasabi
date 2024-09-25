@@ -18,7 +18,7 @@ type AiModelOption struct {
 	Instruction string
 	TopK        int32
 	TopP        float32
-	Temperature float64
+	Temperature float32
 }
 
 func GetAIClient(context context.Context) *genai.Client {
@@ -34,7 +34,7 @@ func GetAIClient(context context.Context) *genai.Client {
 func GetAIModel(client *genai.Client, option *AiModelOption) *genai.GenerativeModel {
 	modelID := helper.GetEnv("AI_MODEL_ID")
 	model := client.GenerativeModel(modelID)
-	model.SetTemperature(*model.Temperature)
+	model.SetTemperature(option.Temperature)
 	model.SetTopK(option.TopK)
 	model.SetTopP(option.TopP)
 	model.SetMaxOutputTokens(8192)

@@ -10,7 +10,7 @@ type Ai struct {
 	Name            string    `gorm:"not null"`
 	Phone           string    `gorm:"not null;unique"`
 	Instruction     string    `gorm:"not null"`
-	Temperature     float64   `gorm:"type:float;not null"`
+	Temperature     float32   `gorm:"type:float;not null"`
 	TopK            int32     `gorm:"column:top_k;type:int"`
 	TopP            float32   `gorm:"column:top_p;type:float"`
 	IsActive        bool      `gorm:"default:false"`
@@ -23,11 +23,11 @@ func (ai *Ai) TableName() string {
 	return "services"
 }
 
-type AiConfiguration struct {
+type CreateAIModel struct {
 	Name        string  `json:"name" validate:"required"`
 	Phone       string  `json:"phone" validate:"required,number"`
 	Instruction string  `json:"instruction" validate:"required"`
 	TopK        int32   `json:"topK" validate:"required,number"`
 	TopP        float32 `json:"topP" validate:"required,number"`
-	Temperature float64 `json:"temperature" validate:"required"`
+	Temperature float32 `json:"temperature" validate:"required"`
 }

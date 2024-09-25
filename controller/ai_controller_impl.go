@@ -4,6 +4,7 @@ import (
 	"adiubaidah/adi-bot/helper"
 	"adiubaidah/adi-bot/model"
 	"adiubaidah/adi-bot/service"
+	"context"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -12,7 +13,9 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/generative-ai-go/genai"
 	"github.com/julienschmidt/httprouter"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types/events"
+	"google.golang.org/protobuf/proto"
 )
 
 var activeRoutines = make(map[string]chan struct{})
@@ -35,40 +38,75 @@ func NewAiController(waService service.WaService, aiService service.AiService, h
 	}
 }
 
-func (a *AiControllerImpl) GetConfiguration(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	ai := a.AiService.GetConfiguration(request.Context())
+func (a *AiControllerImpl) GetModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	ai := a.AiService.GetModel(request.Context())
 	helper.WriteToResponseBody(writer, ai)
 }
 
-func (a *AiControllerImpl) CreateConfiguration(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	aiConfiguration := new(model.AiConfiguration)
-	helper.ReadFromRequestBody(request, aiConfiguration)
-	err := a.Validate.Struct(aiConfiguration)
+func (a *AiControllerImpl) CreateModel(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	createModelAi := new(model.CreateAIModel)
+	helper.ReadFromRequestBody(request, createModelAi)
+	err := a.Validate.Struct(createModelAi)
 	helper.PanicIfError("Error validating request", err)
 
-	result := a.AiService.CreateConfiguration(request.Context(), *aiConfiguration)
+	result := a.AiService.CreateModel(request.Context(), *createModelAi)
 
 	helper.WriteToResponseBody(writter, result)
 
 }
 
 func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	aiConfiguration := new(model.AiConfiguration)
-	helper.ReadFromRequestBody(request, aiConfiguration)
-	err := a.Validate.Struct(aiConfiguration)
-	helper.PanicIfError("Error validating request", err)
-	// modela.AiService.CreateModel(request.Context(), *aiConfiguration)
+
+	//get user id from request context
+	modelAi := a.AiService.GetModel(request.Context())
+
 	go func() {
 
 		mu.Lock()
 		defer mu.Unlock()
-		if _, exists := activeRoutines[aiConfiguration.Phone]; !exists {
-			waActive := a.WaService.Activate(request.Context(), aiConfiguration.Phone)
+		if _, exists := activeRoutines[modelAi.Phone]; !exists {
+			waActive := a.WaService.Activate(request.Context(), modelAi.Phone)
 			// Start a new routine only if it doesn't already exist
 			stopCh := make(chan struct{})
-			activeRoutines[aiConfiguration.Phone] = stopCh
+			activeRoutines[modelAi.Phone] = stopCh
+			waActive.WaClient.AddEventHandler(func(evt any) {
+				newContext := context.Background()
+				switch v := evt.(type) {
+				case *events.Message:
+					if v.Info.IsGroup {
+						return
+					}
 
-			go a.runAIService(stopCh, waActive, aiConfiguration.Phone)
+					if v.Message.GetConversation() == "" {
+						return
+					}
+
+					if v.Info.Timestamp.After(waActive.StartTime) {
+						fmt.Println("Pesan timestamp:", v.Info.Timestamp)
+						fmt.Println("Pesan baru", v.Message.GetConversation())
+						histories, err := a.HistorService.GetHistory(v.Info.Sender.String(), waActive.WaClient.Store.ID.String())
+						helper.PanicIfError("Error getting history", err)
+						input := v.Message.GetConversation()
+						response := a.AiService.GenerateResponse(newContext, modelAi, histories, input)
+						helper.PanicIfError("Error generating response", err)
+
+						_, err = waActive.WaClient.SendMessage(newContext, v.Info.Chat, &waE2E.Message{
+							Conversation: proto.String(response),
+						})
+
+						helper.PanicIfError("Error sending message", err)
+
+						err = a.HistorService.InsertHistory(v.Info.Sender.String(), waActive.WaClient.Store.ID.String(), input, "user")
+						helper.PanicIfError("Error inserting history user", err)
+						err = a.HistorService.InsertHistory(waActive.WaClient.Store.ID.String(), v.Info.Sender.String(), response, "model")
+						helper.PanicIfError("Error inserting history model", err)
+					}
+				default:
+					fmt.Println("Event type not supported")
+				}
+			})
+
+			go a.runAIService(stopCh, modelAi)
 		}
 	}()
 
@@ -76,30 +114,12 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 
 }
 
-func (a *AiControllerImpl) runAIService(stopCh chan struct{}, waActive *service.UserWaStatus, phone string) {
-	waActive.WaClient.AddEventHandler(func(evt any) {
-		switch v := evt.(type) {
-		case *events.Message:
-			if v.Info.IsGroup {
-				return
-			}
-
-			if v.Info.Timestamp.After(waActive.StartTime) {
-				fmt.Println("Pesan timestamp:", v.Info.Timestamp)
-				fmt.Println("Pesan baru", v.Message.GetConversation())
-				// context := context.Background()
-				// histories, err := a.HistorService.GetHistory(v.Info.Sender.String(), waActive.WaClient.Store.ID.String())
-				// helper.PanicIfError("Error getting history", err)
-				// input := v.Message.GetConversation()
-				// response, err := a.AiService.GenerateResponse(context, a., histories, input)
-			}
-		}
-	})
+func (a *AiControllerImpl) runAIService(stopCh chan struct{}, model *model.Ai) {
 
 	for { // it will keep running until the stop channel is closed
 		select {
 		case <-stopCh:
-			fmt.Println("Stopping Goroutine for phone:", phone)
+			fmt.Println("Stopping Goroutine for phone:", model.Phone)
 
 			return
 		}

@@ -3,6 +3,6 @@ package service
 import "adiubaidah/adi-bot/model"
 
 type HistoryService interface {
-	InsertHistory(senderId, recipientId, content, role string) error
-	GetHistory(senderId string, recipientId string) (*[]model.History, error)
+	InsertHistory(sender, receiver, content, role string) error
+	GetHistory(sender string, receiver string) (*[]model.History, error)
 }

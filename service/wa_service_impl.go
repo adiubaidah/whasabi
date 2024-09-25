@@ -44,8 +44,7 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatu
 	}
 
 	waClient, container := app.GetWaClient(phone)
-	err := waClient.Connect()
-	helper.PanicIfError("Error connecting to WhatsApp", err)
+	waClient.Connect()
 	// Initialize a new status if it doesn't exist
 	s.UserStatusMap[phone] = &UserWaStatus{
 		WaClient:        waClient,
@@ -85,6 +84,7 @@ func (s *WaServiceImpl) handleQRCodeAuthentication(ctx context.Context, phone st
 			case "success":
 				s.mu.Lock()
 				status.IsAuthenticated = true
+				status.WaClient.Connect()
 				s.mu.Unlock()
 				fmt.Println("WhatsApp authentication successful!")
 			default:

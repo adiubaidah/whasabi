@@ -28,24 +28,7 @@ func NewAiService(client *genai.Client, db *gorm.DB, validate *validator.Validat
 	}
 }
 
-func (service *AiServiceImpl) GetModel(ctx context.Context, request model.AiConfiguration) *genai.GenerativeModel {
-
-	err := service.Validate.Struct(request)
-	helper.PanicIfError("", err)
-
-	// Get the model
-	option := app.AiModelOption{
-		Instruction: request.Instruction,
-		TopK:        request.TopK,
-		TopP:        request.TopP,
-		Temperature: request.Temperature,
-	}
-
-	model := app.GetAIModel(service.Client, &option)
-	return model
-}
-
-func (service *AiServiceImpl) GetConfiguration(ctx context.Context) *model.Ai {
+func (service *AiServiceImpl) GetModel(ctx context.Context) *model.Ai {
 	// Extract user information from context
 	user := ctx.Value(middleware.UserContext).(jwt.MapClaims)
 	userID := uint(user["id"].(float64)) // Convert ID to uint from float64
@@ -64,7 +47,7 @@ func (service *AiServiceImpl) GetConfiguration(ctx context.Context) *model.Ai {
 
 }
 
-func (service *AiServiceImpl) CreateConfiguration(ctx context.Context, configuration model.AiConfiguration) *model.Ai {
+func (service *AiServiceImpl) CreateModel(ctx context.Context, modelAi model.CreateAIModel) *model.Ai {
 	// Extract user information from context
 	user := ctx.Value(middleware.UserContext).(jwt.MapClaims)
 	userID := uint(user["id"].(float64)) // Convert ID to uint from float64
@@ -87,12 +70,12 @@ func (service *AiServiceImpl) CreateConfiguration(ctx context.Context, configura
 		fmt.Println("Create new AI model")
 		newAiModel := &model.Ai{
 			UserID:          userID,
-			Name:            configuration.Name,
-			Phone:           configuration.Phone,
-			Instruction:     configuration.Instruction,
-			Temperature:     configuration.Temperature,
-			TopK:            configuration.TopK,
-			TopP:            configuration.TopP,
+			Name:            modelAi.Name,
+			Phone:           modelAi.Phone,
+			Instruction:     modelAi.Instruction,
+			Temperature:     modelAi.Temperature,
+			TopK:            modelAi.TopK,
+			TopP:            modelAi.TopP,
 			IsActive:        false,
 			IsAuthenticated: false,
 		}
@@ -103,12 +86,12 @@ func (service *AiServiceImpl) CreateConfiguration(ctx context.Context, configura
 		// Update existing AI model
 		fmt.Println("Update existing AI model")
 		err = service.DB.Model(&aiModel).Updates(model.Ai{
-			Name:        configuration.Name,
-			Phone:       configuration.Phone,
-			Instruction: configuration.Instruction,
-			Temperature: configuration.Temperature,
-			TopK:        configuration.TopK,
-			TopP:        configuration.TopP,
+			Name:        modelAi.Name,
+			Phone:       modelAi.Phone,
+			Instruction: modelAi.Instruction,
+			Temperature: modelAi.Temperature,
+			TopK:        modelAi.TopK,
+			TopP:        modelAi.TopP,
 		}).Error
 	}
 
@@ -118,20 +101,32 @@ func (service *AiServiceImpl) CreateConfiguration(ctx context.Context, configura
 	return aiModel
 }
 
-func (service *AiServiceImpl) GenerateResponse(ctx context.Context, model *genai.GenerativeModel, histories *[]model.History, input string) (string, error) {
+func (service *AiServiceImpl) GenerateResponse(ctx context.Context, modelAi *model.Ai, histories *[]model.History, input string) string {
 	var sessionHistory []*genai.Content
 	for _, history := range *histories {
 		sessionHistory = append(sessionHistory, &genai.Content{
+			Role:  history.RoleAs,
 			Parts: []genai.Part{genai.Text(history.Content)},
 		})
 	}
 
 	// Generate response
+	option := app.AiModelOption{
+		Instruction: modelAi.Instruction,
+		TopK:        modelAi.TopK,
+		TopP:        modelAi.TopP,
+		Temperature: modelAi.Temperature,
+	}
+
+	model := app.GetAIModel(service.Client, &option)
 	session := model.StartChat()
-	session.History = sessionHistory
+
+	if (sessionHistory != nil) && (len(sessionHistory) > 0) {
+		session.History = sessionHistory
+	}
 
 	resp, err := session.SendMessage(ctx, genai.Text(input))
 	helper.PanicIfError("Error saat mengambil respon:", err)
 
-	return string(resp.Candidates[0].Content.Parts[0].(genai.Text)), nil
+	return string(resp.Candidates[0].Content.Parts[0].(genai.Text))
 }

@@ -3,13 +3,10 @@ package service
 import (
 	"adiubaidah/adi-bot/model"
 	"context"
-
-	"github.com/google/generative-ai-go/genai"
 )
 
 type AiService interface {
-	CreateConfiguration(ctx context.Context, configuration model.AiConfiguration) *model.Ai
-	GetConfiguration(ctx context.Context) *model.Ai
-	GetModel(ctx context.Context, request model.AiConfiguration) *genai.GenerativeModel
-	GenerateResponse(ctx context.Context, model *genai.GenerativeModel, histories *[]model.History, input string) (string, error)
+	CreateModel(ctx context.Context, configuration model.CreateAIModel) *model.Ai
+	GetModel(ctx context.Context) *model.Ai
+	GenerateResponse(ctx context.Context, modelAI *model.Ai, histories *[]model.History, input string) string
 }

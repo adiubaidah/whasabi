@@ -23,8 +23,8 @@ func SetupRouter(aiCtrl controller.AiController, userCtrl controller.UserControl
 	router.Handler(http.MethodPost, "/login", adaptHandle(authCtrl.Login))
 
 	// Wrap AI controller routes with AuthMiddleware (for authenticated users)
-	router.Handler(http.MethodGet, "/ai/configuration", middleware.AuthMiddleware(adaptHandle(aiCtrl.GetConfiguration)))
-	router.Handler(http.MethodPost, "/ai/configuration", middleware.AuthMiddleware(adaptHandle(aiCtrl.CreateConfiguration)))
+	router.Handler(http.MethodGet, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.GetModel)))
+	router.Handler(http.MethodPost, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.CreateModel)))
 	router.Handler(http.MethodPost, "/ai/activate", middleware.AuthMiddleware(adaptHandle(aiCtrl.Activate)))
 	router.Handler(http.MethodGet, "/ai/check-activation", middleware.AuthMiddleware(adaptHandle(aiCtrl.CheckActivation)))
 	router.Handler(http.MethodGet, "/ai/check-authentication", middleware.AuthMiddleware(adaptHandle(aiCtrl.CheckAuthentication)))
