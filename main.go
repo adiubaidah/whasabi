@@ -22,7 +22,8 @@ func main() {
 	context := context.Background()
 
 	aiClient := app.GetAIClient(context)
-	waService := service.NewWaService()
+	websocketHub := app.WsHub
+	waService := service.NewWaService(websocketHub)
 	aiService := service.NewAiService(aiClient, db, validate)
 	authService := service.NewAuthService(db, validate)
 	historyService := service.NewHistoryService(db)
@@ -30,7 +31,7 @@ func main() {
 
 	aiController := controller.NewAiController(waService, aiService, historyService, validate)
 	authController := controller.NewAuthController(authService)
-	userController := controller.NewUserController(userService)
+	userController := controller.NewUserController(userService, websocketHub)
 
 	router := routes.SetupRouter(aiController, userController, authController)
 

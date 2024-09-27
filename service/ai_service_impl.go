@@ -85,7 +85,7 @@ func (service *AiServiceImpl) CreateModel(ctx context.Context, modelAi model.Cre
 	} else {
 		// Update existing AI model
 		fmt.Println("Update existing AI model")
-		err = service.DB.Model(&aiModel).Updates(model.Ai{
+		err = service.DB.Model(&aiModel).Updates(&model.Ai{
 			Name:        modelAi.Name,
 			Phone:       modelAi.Phone,
 			Instruction: modelAi.Instruction,

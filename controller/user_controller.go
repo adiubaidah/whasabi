@@ -8,4 +8,5 @@ import (
 
 type UserController interface {
 	Create(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	WebSocket(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 }

@@ -34,7 +34,11 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 		Expires: time.Now().Add(time.Hour * 72),
 	}
 	http.SetCookie(writer, &cookie)
-	helper.WriteToResponseBody(writer, "Bearer "+token)
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   "Login success",
+	})
 
 }
 
@@ -45,5 +49,9 @@ func (controller *AuthControllerImpl) Logout(writer http.ResponseWriter, request
 	if err != nil {
 		panic(exception.NewUnauthorizedError(err.Error()))
 	}
-	helper.WriteToResponseBody(writer, "Logout successful")
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   "Logout success",
+	})
 }

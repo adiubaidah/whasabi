@@ -14,12 +14,13 @@ func NewHistoryService(DB *gorm.DB) HistoryService {
 	return &HistoryServiceImpl{DB: DB}
 }
 
-func (s *HistoryServiceImpl) InsertHistory(sender, receiver, content, role string) error {
+func (s *HistoryServiceImpl) InsertHistory(serviceId uint, sender, receiver, content, role string) error {
 	history := model.History{
-		Sender:   sender,
-		Receiver: receiver,
-		Content:  content,
-		RoleAs:   role,
+		ServiceID: serviceId,
+		Sender:    sender,
+		Receiver:  receiver,
+		Content:   content,
+		RoleAs:    role,
 	}
 	return s.DB.Create(&history).Error
 }

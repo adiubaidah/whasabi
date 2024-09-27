@@ -24,18 +24,20 @@ type UserWaStatus struct {
 
 type WaServiceImpl struct {
 	UserStatusMap map[string]*UserWaStatus // Map to track status by phone number
-	mu            sync.Mutex               // Mutex to protect concurrent access to map
+	WebSocketHub  *app.WebSocketHub
+	mu            sync.Mutex // Mutex to protect concurrent access to map
 }
 
 // Create new WhatsApp and AI service
-func NewWaService() WaService {
+func NewWaService(waWebSocketHub *app.WebSocketHub) WaService {
 	return &WaServiceImpl{
 		UserStatusMap: make(map[string]*UserWaStatus),
+		WebSocketHub:  waWebSocketHub,
 	}
 }
 
 // Function to activate WhatsApp and AI for a user
-func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatus {
+func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
 	// If the service is already active, no need to activate again
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -44,7 +46,6 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatu
 	}
 
 	waClient, container := app.GetWaClient(phone)
-	waClient.Connect()
 	// Initialize a new status if it doesn't exist
 	s.UserStatusMap[phone] = &UserWaStatus{
 		WaClient:        waClient,
@@ -62,31 +63,51 @@ func (s *WaServiceImpl) Activate(ctx context.Context, phone string) *UserWaStatu
 
 	// If not authenticated, handle the authentication process
 	if !status.IsAuthenticated {
-		s.handleQRCodeAuthentication(ctx, phone, status)
+		s.handleQRCodeAuthentication(phone, status)
+	} else {
+		status.WaClient.Connect()
+		s.WebSocketHub.SendMessage(phone, "Connection Successful!")
 	}
 
 	return status
 }
 
 // handleQRCodeAuthentication manages the WhatsApp authentication process using QR code
-func (s *WaServiceImpl) handleQRCodeAuthentication(ctx context.Context, phone string, status *UserWaStatus) {
-	qrChan, _ := status.WaClient.GetQRChannel(ctx)
-	fmt.Println("Hanlde Qr Code")
+func (s *WaServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaStatus) {
+	context := context.Background()
+	qrChan, err := status.WaClient.GetQRChannel(context)
+	helper.PanicIfError("Error getting QR channel", err)
+	err = status.WaClient.Connect()
+	helper.PanicIfError("Error connecting to WhatsApp", err)
 	go func() {
 		for evt := range qrChan {
+			fmt.Println("QR event received:", evt.Event)
 			switch evt.Event {
 			case "code":
-				err := qrcode.WriteFile(evt.Code, qrcode.Medium, 256, "public/qr"+phone+".png")
+				qrPath := fmt.Sprintf("public/qr-%s-%s.png", time.Now().Format("20060102-150405"), phone)
+				err := qrcode.WriteFile(evt.Code, qrcode.Medium, 256, qrPath)
 				if err != nil {
+					fmt.Println("Error generating QR code:", err)
 				} else {
 					fmt.Printf("QR code generated for phone %s. Scan it using WhatsApp!\n", phone)
+					s.WebSocketHub.SendMessage(phone, qrPath)
 				}
 			case "success":
 				s.mu.Lock()
+				defer s.mu.Unlock()
 				status.IsAuthenticated = true
-				status.WaClient.Connect()
-				s.mu.Unlock()
-				fmt.Println("WhatsApp authentication successful!")
+				s.WebSocketHub.SendMessage(phone, "Connection Successful!")
+				return
+			case "timeout":
+				fmt.Println("Timeout")
+				status.WaClient.Disconnect()
+				s.WebSocketHub.SendMessage(phone, "Connection Timeout!")
+				if stopCh, exists := app.ActiveRoutines[phone]; exists {
+					s.Deactivate(context, phone)
+					close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
+					delete(app.ActiveRoutines, phone) // Remove the phone from the map
+				}
+				return
 			default:
 				fmt.Println("Unhandled QR event:", evt.Event)
 			}

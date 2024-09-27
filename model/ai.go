@@ -17,6 +17,7 @@ type Ai struct {
 	IsAuthenticated bool      `gorm:"default:false"`
 	CreatedAt       time.Time `gorm:"default:autoCreateTime"`
 	User            *User     `gorm:"foreignKey:user_id;references:id"`
+	Histories       []History `gorm:"foreignKey:service_id;references:id"`
 }
 
 func (ai *Ai) TableName() string {

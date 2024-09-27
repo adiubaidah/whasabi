@@ -23,7 +23,7 @@ func NewUserService(db *gorm.DB, validate *validator.Validate) UserService {
 }
 
 // Create is a function to create a new user
-func (service *UserServiceImpl) Create(ctx context.Context, request model.UserCreateRequest) model.User {
+func (service *UserServiceImpl) Create(ctx context.Context, request model.UserCreateRequest) *model.User {
 	err := service.Validate.Struct(request)
 	helper.PanicIfError("", err)
 
@@ -39,5 +39,16 @@ func (service *UserServiceImpl) Create(ctx context.Context, request model.UserCr
 	err = service.DB.Create(&user).Error
 	helper.PanicIfError("", err)
 
-	return user
+	return &user
+
+}
+
+func (service *UserServiceImpl) GetService(userId int) *model.Ai {
+
+	ai := model.Ai{}
+
+	err := service.DB.Where("user_id = ?", userId).Take(&ai).Error
+	helper.PanicIfError("Error getting service by user id", err)
+
+	return &ai
 }

@@ -6,5 +6,6 @@ import (
 )
 
 type UserService interface {
-	Create(ctx context.Context, request model.UserCreateRequest) model.User
+	Create(ctx context.Context, request model.UserCreateRequest) *model.User
+	GetService(userId int) *model.Ai
 }

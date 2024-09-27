@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"adiubaidah/adi-bot/app"
 	"adiubaidah/adi-bot/helper"
 	"adiubaidah/adi-bot/model"
 	"adiubaidah/adi-bot/service"
@@ -8,25 +9,19 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
-	"sync"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/google/generative-ai-go/genai"
 	"github.com/julienschmidt/httprouter"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 )
 
-var activeRoutines = make(map[string]chan struct{})
-var mu sync.Mutex // Protects access to the map
-
 type AiControllerImpl struct {
 	WaService     service.WaService
 	AiService     service.AiService
 	HistorService service.HistoryService
 	Validate      *validator.Validate
-	AiModel       *genai.GenerativeModel
 }
 
 func NewAiController(waService service.WaService, aiService service.AiService, historyService service.HistoryService, validate *validator.Validate) AiController {
@@ -40,7 +35,11 @@ func NewAiController(waService service.WaService, aiService service.AiService, h
 
 func (a *AiControllerImpl) GetModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	ai := a.AiService.GetModel(request.Context())
-	helper.WriteToResponseBody(writer, ai)
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   ai,
+	})
 }
 
 func (a *AiControllerImpl) CreateModel(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
@@ -51,7 +50,11 @@ func (a *AiControllerImpl) CreateModel(writter http.ResponseWriter, request *htt
 
 	result := a.AiService.CreateModel(request.Context(), *createModelAi)
 
-	helper.WriteToResponseBody(writter, result)
+	helper.WriteToResponseBody(writter, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   result,
+	})
 
 }
 
@@ -59,21 +62,21 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 
 	//get user id from request context
 	modelAi := a.AiService.GetModel(request.Context())
+	fmt.Println("Active go routine after activation", runtime.NumGoroutine())
 
 	go func() {
 
-		mu.Lock()
-		defer mu.Unlock()
-		if _, exists := activeRoutines[modelAi.Phone]; !exists {
-			waActive := a.WaService.Activate(request.Context(), modelAi.Phone)
-			// Start a new routine only if it doesn't already exist
+		app.Mu.Lock()
+		defer app.Mu.Unlock()
+		if _, exists := app.ActiveRoutines[modelAi.Phone]; !exists {
+			waActive := a.WaService.Activate(modelAi.Phone)
 			stopCh := make(chan struct{})
-			activeRoutines[modelAi.Phone] = stopCh
+			app.ActiveRoutines[modelAi.Phone] = stopCh
 			waActive.WaClient.AddEventHandler(func(evt any) {
 				newContext := context.Background()
 				switch v := evt.(type) {
 				case *events.Message:
-					if v.Info.IsGroup {
+					if v.Info.IsGroup || v.Info.IsFromMe {
 						return
 					}
 
@@ -96,9 +99,9 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 
 						helper.PanicIfError("Error sending message", err)
 
-						err = a.HistorService.InsertHistory(v.Info.Sender.String(), waActive.WaClient.Store.ID.String(), input, "user")
+						err = a.HistorService.InsertHistory(modelAi.ID, v.Info.Sender.String(), waActive.WaClient.Store.ID.String(), input, "user")
 						helper.PanicIfError("Error inserting history user", err)
-						err = a.HistorService.InsertHistory(waActive.WaClient.Store.ID.String(), v.Info.Sender.String(), response, "model")
+						err = a.HistorService.InsertHistory(modelAi.ID, waActive.WaClient.Store.ID.String(), v.Info.Sender.String(), response, "model")
 						helper.PanicIfError("Error inserting history model", err)
 					}
 				default:
@@ -110,7 +113,11 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 		}
 	}()
 
-	helper.WriteToResponseBody(writer, "AI and WhatsApp are activating")
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   "AI and WhatsApp are activating",
+	})
 
 }
 
@@ -133,19 +140,23 @@ func (a *AiControllerImpl) Deactivate(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	mu.Lock()
-	defer mu.Unlock() // Ensure we unlock the mutex at the end
+	app.Mu.Lock()
+	defer app.Mu.Unlock() // Ensure we unlock the mutex at the end
 
-	if stopCh, exists := activeRoutines[phone]; exists {
+	if stopCh, exists := app.ActiveRoutines[phone]; exists {
 		a.WaService.Deactivate(request.Context(), phone)
-		close(stopCh)                 // Close the stop channel to signal the Goroutine to stop
-		delete(activeRoutines, phone) // Remove the phone from the map
+		close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
+		delete(app.ActiveRoutines, phone) // Remove the phone from the map
 	} else {
 		helper.WriteToResponseBody(writer, "No active session found for this phone")
 		return
 	}
 
-	helper.WriteToResponseBody(writer, "AI and WhatsApp are deactivating")
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   "AI and WhatsApp are deactivating",
+	})
 	fmt.Println("Number of Goroutines after deactivation:", runtime.NumGoroutine())
 }
 
@@ -156,7 +167,11 @@ func (a *AiControllerImpl) CheckActivation(writer http.ResponseWriter, request *
 		return
 	}
 	status := a.WaService.CheckActivation(request.Context(), phone)
-	helper.WriteToResponseBody(writer, fmt.Sprintf("AI and WhatsApp are active: %t", status))
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   status,
+	})
 
 }
 
@@ -167,5 +182,9 @@ func (a *AiControllerImpl) CheckAuthentication(writer http.ResponseWriter, reque
 		return
 	}
 	status := a.WaService.CheckAuthentication(request.Context(), phone)
-	helper.WriteToResponseBody(writer, fmt.Sprintf("AI and WhatsApp are authenticated: %t", status))
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   status,
+	})
 }

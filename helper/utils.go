@@ -23,7 +23,7 @@ func ReadFromRequestBody(request *http.Request, result any) {
 	PanicIfError("", err)
 }
 
-func WriteToResponseBody(writer http.ResponseWriter, response interface{}) {
+func WriteToResponseBody(writer http.ResponseWriter, response any) {
 	writer.Header().Add("Content-Type", "application/json")
 	encoder := json.NewEncoder(writer)
 	err := encoder.Encode(response)
@@ -32,3 +32,5 @@ func WriteToResponseBody(writer http.ResponseWriter, response interface{}) {
 func GetEnv(key string) string {
 	return viper.GetString(key)
 }
+
+//get user from
