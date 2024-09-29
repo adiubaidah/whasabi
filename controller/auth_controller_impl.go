@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"adiubaidah/adi-bot/exception"
 	"adiubaidah/adi-bot/helper"
 	"adiubaidah/adi-bot/model"
 	"adiubaidah/adi-bot/service"
@@ -39,16 +38,28 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 		Status: "success",
 		Data:   "Login success",
 	})
+}
 
+func (controller *AuthControllerImpl) IsAuth(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   "Authenticated",
+	})
 }
 
 func (controller *AuthControllerImpl) Logout(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	userLogoutRequest := new(model.UserLogoutRequest)
-	helper.ReadFromRequestBody(request, userLogoutRequest)
-	err := controller.AuthService.Logout(request.Context(), *userLogoutRequest)
-	if err != nil {
-		panic(exception.NewUnauthorizedError(err.Error()))
+
+	// Delete the token cookie
+	cookie := http.Cookie{
+		Name:    "token",
+		Value:   "",
+		Expires: time.Unix(0, 0),
+		Path:    "/",
 	}
+
+	http.SetCookie(writer, &cookie)
+
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",

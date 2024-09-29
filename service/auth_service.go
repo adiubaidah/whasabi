@@ -7,5 +7,4 @@ import (
 
 type AuthService interface {
 	Login(ctx context.Context, request model.UserLoginRequest) string
-	Logout(ctx context.Context, request model.UserLogoutRequest) error
 }

@@ -34,12 +34,12 @@ func main() {
 	userController := controller.NewUserController(userService, websocketHub)
 
 	router := routes.SetupRouter(aiController, userController, authController)
-
+	PORT := helper.GetEnv("APP_PORT")
 	server := http.Server{
-		Addr:    "localhost:3000",
+		Addr:    "localhost:" + PORT,
 		Handler: router,
 	}
-	fmt.Println("Server started at localhost:3000")
+	fmt.Println("Server started at localhost:" + PORT)
 	err := server.ListenAndServe()
 	helper.PanicIfError("failed to start server", err)
 

@@ -53,16 +53,3 @@ func (a *AuthServiceImpl) Login(ctx context.Context, request model.UserLoginRequ
 	helper.PanicIfError("Error signing the token", err)
 	return tokenString
 }
-
-func (service *AuthServiceImpl) Logout(ctx context.Context, request model.UserLogoutRequest) error {
-	// Validate the request
-	err := service.Validate.Struct(request)
-	if err != nil {
-		return err
-	}
-
-	//
-
-	// return nil
-	return nil
-}
