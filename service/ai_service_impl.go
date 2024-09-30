@@ -47,7 +47,7 @@ func (service *AiServiceImpl) GetModel(ctx context.Context) *model.Ai {
 
 }
 
-func (service *AiServiceImpl) CreateModel(ctx context.Context, modelAi model.CreateAIModel) *model.Ai {
+func (service *AiServiceImpl) UpsertModel(ctx context.Context, modelAi model.CreateAIModel) *model.Ai {
 	// Extract user information from context
 	user := ctx.Value(middleware.UserContext).(jwt.MapClaims)
 	userID := uint(user["id"].(float64)) // Convert ID to uint from float64
@@ -63,19 +63,19 @@ func (service *AiServiceImpl) CreateModel(ctx context.Context, modelAi model.Cre
 		panic(result.Error)
 	}
 
-	fmt.Println("Rows affected: ", result.RowsAffected)
-
 	if result.RowsAffected == 0 {
 		// If no AI model exists for this user, create a new one
 		fmt.Println("Create new AI model")
 		newAiModel := &model.Ai{
-			UserID:          userID,
-			Name:            modelAi.Name,
-			Phone:           modelAi.Phone,
-			Instruction:     modelAi.Instruction,
-			Temperature:     modelAi.Temperature,
-			TopK:            modelAi.TopK,
-			TopP:            modelAi.TopP,
+			UserID: userID,
+			CreateAIModel: model.CreateAIModel{
+				Name:        modelAi.Name,
+				Phone:       modelAi.Phone,
+				Instruction: modelAi.Instruction,
+				Temperature: modelAi.Temperature,
+				TopK:        modelAi.TopK,
+				TopP:        modelAi.TopP,
+			},
 			IsActive:        false,
 			IsAuthenticated: false,
 		}
@@ -85,7 +85,7 @@ func (service *AiServiceImpl) CreateModel(ctx context.Context, modelAi model.Cre
 	} else {
 		// Update existing AI model
 		fmt.Println("Update existing AI model")
-		err = service.DB.Model(&aiModel).Updates(&model.Ai{
+		err = service.DB.Model(&aiModel).Where("phone = ?", modelAi.Phone).Updates(&model.CreateAIModel{
 			Name:        modelAi.Name,
 			Phone:       modelAi.Phone,
 			Instruction: modelAi.Instruction,

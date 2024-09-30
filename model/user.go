@@ -8,6 +8,12 @@ type User struct {
 	Service  Ai     `gorm:"foreignKey:user_id;references:id"`
 }
 
+type UserDTO struct {
+	ID       int    `json:"id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
 type UserLoginRequest struct {
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`

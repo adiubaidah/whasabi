@@ -6,3 +6,4 @@ log.db
 
 db/migrations/
 migration.sh
+tmp/

@@ -3,6 +3,7 @@ package service
 import (
 	"adiubaidah/adi-bot/app"
 	"adiubaidah/adi-bot/helper"
+	"adiubaidah/adi-bot/model"
 	"context"
 	"fmt"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"gorm.io/gorm"
 )
 
 // Struct for storing user service status
@@ -25,14 +27,16 @@ type UserWaStatus struct {
 type WaServiceImpl struct {
 	UserStatusMap map[string]*UserWaStatus // Map to track status by phone number
 	WebSocketHub  *app.WebSocketHub
-	mu            sync.Mutex // Mutex to protect concurrent access to map
+	mu            sync.Mutex
+	DB            *gorm.DB
 }
 
 // Create new WhatsApp and AI service
-func NewWaService(waWebSocketHub *app.WebSocketHub) WaService {
+func NewWaService(waWebSocketHub *app.WebSocketHub, db *gorm.DB) WaService {
 	return &WaServiceImpl{
 		UserStatusMap: make(map[string]*UserWaStatus),
 		WebSocketHub:  waWebSocketHub,
+		DB:            db,
 	}
 }
 
@@ -66,8 +70,15 @@ func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
 		s.handleQRCodeAuthentication(phone, status)
 	} else {
 		status.WaClient.Connect()
+
 		s.WebSocketHub.SendMessage(phone, "Connection Successful!")
 	}
+	err := s.DB.Model(&model.Ai{}).Where("phone = ?", phone).Updates(&model.Ai{
+		IsActive:        status.IsActive,
+		IsAuthenticated: status.IsAuthenticated,
+	}).Error
+
+	helper.PanicIfError("Error updating AI model", err)
 
 	return status
 }

@@ -42,7 +42,7 @@ func (a *AiControllerImpl) GetModel(writer http.ResponseWriter, request *http.Re
 	})
 }
 
-func (a *AiControllerImpl) CreateModel(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
+func (a *AiControllerImpl) UpsertModel(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	createModelAi := new(model.CreateAIModel)
 	helper.ReadFromRequestBody(request, createModelAi)
 	err := a.Validate.Struct(createModelAi)

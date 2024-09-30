@@ -2,21 +2,25 @@ package controller
 
 import (
 	"adiubaidah/adi-bot/helper"
+	"adiubaidah/adi-bot/middleware"
 	"adiubaidah/adi-bot/model"
 	"adiubaidah/adi-bot/service"
 	"net/http"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
 )
 
 type AuthControllerImpl struct {
 	AuthService service.AuthService
+	service.UserService
 }
 
-func NewAuthController(authService service.AuthService) AuthController {
+func NewAuthController(authService service.AuthService, userService service.UserService) AuthController {
 	return &AuthControllerImpl{
 		AuthService: authService,
+		UserService: userService,
 	}
 }
 
@@ -41,10 +45,16 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 }
 
 func (controller *AuthControllerImpl) IsAuth(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	user := controller.UserService.Find(service.UserSearchParams{
+		UserId: int(userContext["id"].(float64)),
+	})
+
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
-		Data:   "Authenticated",
+		Data:   user,
 	})
 }
 

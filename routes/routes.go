@@ -20,13 +20,13 @@ func adaptHandle(h httprouter.Handle) http.HandlerFunc {
 
 func SetupRouter(aiCtrl controller.AiController, userCtrl controller.UserController, authCtrl controller.AuthController) *httprouter.Router {
 	router := httprouter.New()
-	router.Handler(http.MethodPost, "/login", adaptHandle(authCtrl.Login))
-	router.Handler(http.MethodGet, "/is-auth", middleware.AuthMiddleware(adaptHandle(authCtrl.IsAuth)))
-	router.Handler(http.MethodPost, "/logout", middleware.AuthMiddleware(adaptHandle(authCtrl.Logout)))
+	router.Handler(http.MethodPost, "/auth/login", adaptHandle(authCtrl.Login))
+	router.Handler(http.MethodGet, "/auth/is-auth", middleware.AuthMiddleware(adaptHandle(authCtrl.IsAuth)))
+	router.Handler(http.MethodPost, "/auth/logout", middleware.AuthMiddleware(adaptHandle(authCtrl.Logout)))
 
 	// Wrap AI controller routes with AuthMiddleware (for authenticated users)
 	router.Handler(http.MethodGet, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.GetModel)))
-	router.Handler(http.MethodPost, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.CreateModel)))
+	router.Handler(http.MethodPost, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.UpsertModel)))
 	router.Handler(http.MethodPost, "/ai/activate", middleware.AuthMiddleware(adaptHandle(aiCtrl.Activate)))
 	router.Handler(http.MethodPost, "/ai/deactivate", middleware.AuthMiddleware(adaptHandle(aiCtrl.Deactivate)))
 	router.Handler(http.MethodGet, "/ai/check-activation", middleware.AuthMiddleware(adaptHandle(aiCtrl.CheckActivation)))
