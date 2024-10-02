@@ -71,7 +71,11 @@ func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
 	} else {
 		status.WaClient.Connect()
 
-		s.WebSocketHub.SendMessage(phone, "Connection Successful!")
+		s.WebSocketHub.SendMessage(phone, model.WebResponse{
+			Code:   200,
+			Status: "success",
+			Data:   "Connection Successful!",
+		})
 	}
 	err := s.DB.Model(&model.Ai{}).Where("phone = ?", phone).Updates(&model.Ai{
 		IsActive:        status.IsActive,
@@ -101,18 +105,37 @@ func (s *WaServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaS
 					fmt.Println("Error generating QR code:", err)
 				} else {
 					fmt.Printf("QR code generated for phone %s. Scan it using WhatsApp!\n", phone)
-					s.WebSocketHub.SendMessage(phone, qrPath)
+					s.WebSocketHub.SendMessage(phone, model.WebResponse{
+						Code:   200,
+						Status: "success",
+						Data: map[string]string{
+							"type":   "authenticating",
+							"qrPath": qrPath,
+						},
+					})
 				}
 			case "success":
 				s.mu.Lock()
 				defer s.mu.Unlock()
 				status.IsAuthenticated = true
-				s.WebSocketHub.SendMessage(phone, "Connection Successful!")
+				s.WebSocketHub.SendMessage(phone, model.WebResponse{
+					Code:   200,
+					Status: "success",
+					Data: map[string]string{
+						"type": "authenticated",
+					},
+				})
 				return
 			case "timeout":
 				fmt.Println("Timeout")
 				status.WaClient.Disconnect()
-				s.WebSocketHub.SendMessage(phone, "Connection Timeout!")
+				s.WebSocketHub.SendMessage(phone, model.WebResponse{
+					Code:   408,
+					Status: "error",
+					Data: map[string]string{
+						"type": "timeout",
+					},
+				})
 				if stopCh, exists := app.ActiveRoutines[phone]; exists {
 					s.Deactivate(context, phone)
 					close(stopCh)                     // Close the stop channel to signal the Goroutine to stop

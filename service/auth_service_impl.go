@@ -5,6 +5,7 @@ import (
 	"adiubaidah/adi-bot/helper"
 	"adiubaidah/adi-bot/model"
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -28,7 +29,7 @@ func NewAuthService(db *gorm.DB, validate *validator.Validate) *AuthServiceImpl 
 func (a *AuthServiceImpl) Login(ctx context.Context, request model.UserLoginRequest) string {
 	// Validate the request
 	err := a.Validate.Struct(request)
-	helper.PanicIfError("", err)
+	helper.PanicIfError("Error when validating ", err)
 
 	// Check if the user exists
 	user := model.User{}
@@ -49,7 +50,7 @@ func (a *AuthServiceImpl) Login(ctx context.Context, request model.UserLoginRequ
 	// Create the token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString([]byte(helper.GetEnv("JWT_SECRET")))
+	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 	helper.PanicIfError("Error signing the token", err)
 	return tokenString
 }

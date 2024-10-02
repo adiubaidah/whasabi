@@ -1,8 +1,8 @@
 package app
 
 import (
-	"adiubaidah/adi-bot/helper"
 	"context"
+	"os"
 	"sync"
 
 	"github.com/google/generative-ai-go/genai"
@@ -23,7 +23,7 @@ type AiModelOption struct {
 
 func GetAIClient(context context.Context) *genai.Client {
 
-	apiKey := helper.GetEnv("AI_API_KEY")
+	apiKey := os.Getenv("AI_API_KEY")
 
 	once.Do(func() {
 		aiClientInstance, _ = genai.NewClient(context, option.WithAPIKey(apiKey)) // Inisialisasi client AI
@@ -32,7 +32,7 @@ func GetAIClient(context context.Context) *genai.Client {
 }
 
 func GetAIModel(client *genai.Client, option *AiModelOption) *genai.GenerativeModel {
-	modelID := helper.GetEnv("AI_MODEL_ID")
+	modelID := os.Getenv("AI_MODEL_ID")
 	model := client.GenerativeModel(modelID)
 	model.SetTemperature(option.Temperature)
 	model.SetTopK(option.TopK)

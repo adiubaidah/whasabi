@@ -64,16 +64,12 @@ func (hub *WebSocketHub) ServeWebSocket(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (hub *WebSocketHub) SendMessage(phone, message string) {
+func (hub *WebSocketHub) SendMessage(phone string, response model.WebResponse) {
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
 
 	if client, exists := hub.Clients[phone]; exists {
-		err := client.Conn.WriteJSON(&model.WebResponse{
-			Code:   200,
-			Status: "success",
-			Data:   message,
-		})
+		err := client.Conn.WriteJSON(&response)
 		if err != nil {
 			fmt.Println("WebSocket Write Error:", err)
 			delete(hub.Clients, phone)

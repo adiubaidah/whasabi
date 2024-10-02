@@ -8,8 +8,8 @@ type CreateAIModel struct {
 	Name        string  `gorm:"not null" json:"name" validate:"required"`
 	Phone       string  `gorm:"not null;unique" json:"phone" validate:"required,number"`
 	Instruction string  `gorm:"not null" json:"instruction" validate:"required"`
-	TopK        int32   `gorm:"column:top_k;type:int" json:"topK" validate:"required,number"`
-	TopP        float32 `gorm:"column:top_k;type:int" json:"topP" validate:"required,number"`
+	TopK        int32   `gorm:"column:top_k;type:int" json:"top_k"`
+	TopP        float32 `gorm:"column:top_k;type:int" json:"top_p"`
 	Temperature float32 `gorm:"type:float;not null" json:"temperature" validate:"required"`
 }
 

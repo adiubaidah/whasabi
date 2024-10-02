@@ -10,12 +10,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/go-playground/validator/v10"
 )
 
 func main() {
-	app.Init()
 	validate := validator.New()
 	db := db.NewDB()
 
@@ -37,20 +37,19 @@ func main() {
 
 	corsHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := helper.GetEnv("APP_ORIGIN")
+			origin := os.Getenv("APP_ORIGIN")
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)
-				fmt.Println("OPTIONS")
 				return
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
-	PORT := helper.GetEnv("APP_PORT")
+	PORT := os.Getenv("APP_PORT")
 	server := http.Server{
 		Addr:    "localhost:" + PORT,
 		Handler: corsHandler(router),

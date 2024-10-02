@@ -2,8 +2,9 @@ adi-bot.exe
 session/*
 public/*
 log.db
-.env
+config.txt
 
-db/migrations/
-migration.sh
+__debug*
+command.sh
 tmp/
+.vscode

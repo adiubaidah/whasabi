@@ -40,7 +40,7 @@ func (controller *UserControllerImpl) Create(writer http.ResponseWriter, request
 func (controller *UserControllerImpl) WebSocket(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userId, err := strconv.Atoi(request.URL.Query().Get("id"))
 
-	helper.PanicIfError("", err)
+	helper.PanicIfError("Error when convert", err)
 
 	ai := controller.UserService.GetService(userId)
 

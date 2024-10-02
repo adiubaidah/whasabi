@@ -48,7 +48,7 @@ func (a *AiControllerImpl) UpsertModel(writter http.ResponseWriter, request *htt
 	err := a.Validate.Struct(createModelAi)
 	helper.PanicIfError("Error validating request", err)
 
-	result := a.AiService.CreateModel(request.Context(), *createModelAi)
+	result := a.AiService.UpsertModel(request.Context(), *createModelAi)
 
 	helper.WriteToResponseBody(writter, &model.WebResponse{
 		Code:   200,
@@ -134,19 +134,16 @@ func (a *AiControllerImpl) runAIService(stopCh chan struct{}, model *model.Ai) {
 }
 
 func (a *AiControllerImpl) Deactivate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	phone := request.URL.Query().Get("phone")
-	if phone == "" {
-		helper.PanicIfError("Error deactivating AI and WhatsApp", fmt.Errorf("Phone number is required"))
-		return
-	}
+	modelAi := a.AiService.GetModel(request.Context())
+	a.WaService.Deactivate(request.Context(), modelAi.Phone)
 
 	app.Mu.Lock()
 	defer app.Mu.Unlock() // Ensure we unlock the mutex at the end
 
-	if stopCh, exists := app.ActiveRoutines[phone]; exists {
-		a.WaService.Deactivate(request.Context(), phone)
-		close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
-		delete(app.ActiveRoutines, phone) // Remove the phone from the map
+	if stopCh, exists := app.ActiveRoutines[modelAi.Phone]; exists {
+		a.WaService.Deactivate(request.Context(), modelAi.Phone)
+		close(stopCh)                             // Close the stop channel to signal the Goroutine to stop
+		delete(app.ActiveRoutines, modelAi.Phone) // Remove the phone from the map
 	} else {
 		helper.WriteToResponseBody(writer, "No active session found for this phone")
 		return

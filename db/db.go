@@ -1,9 +1,9 @@
 package db
 
 import (
-	"adiubaidah/adi-bot/helper"
 	"fmt"
 	"log"
+	"os"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -11,11 +11,11 @@ import (
 )
 
 func NewDB() *gorm.DB {
-	dbHost := helper.GetEnv("DB_HOST")
-	dbUsername := helper.GetEnv("DB_USER")
-	dbPassword := helper.GetEnv("DB_PASS")
-	dbName := helper.GetEnv("DB_NAME")
-	dbPort := helper.GetEnv("DB_PORT")
+	dbHost := os.Getenv("DB_HOST")
+	dbUsername := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASS")
+	dbName := os.Getenv("DB_NAME")
+	dbPort := os.Getenv("DB_PORT")
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s TimeZone=Asia/Jakarta", dbHost, dbUsername, dbPassword, dbName, dbPort)
 	dialect := postgres.New(postgres.Config{

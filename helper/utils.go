@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/spf13/viper"
 )
 
 func PanicIfError(message string, err error) {
@@ -28,9 +26,6 @@ func WriteToResponseBody(writer http.ResponseWriter, response any) {
 	encoder := json.NewEncoder(writer)
 	err := encoder.Encode(response)
 	PanicIfError("", err)
-}
-func GetEnv(key string) string {
-	return viper.GetString(key)
 }
 
 //get user from
