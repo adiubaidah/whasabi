@@ -23,17 +23,16 @@ func main() {
 
 	aiClient := app.GetAIClient(context)
 	websocketHub := app.WsHub
-	waService := service.NewWaService(websocketHub, db)
-	aiService := service.NewAiService(aiClient, db, validate)
-	authService := service.NewAuthService(db, validate)
+	processService := service.NewProcessService(aiClient, websocketHub, db)
+	authService := service.NewAuthService(db)
 	historyService := service.NewHistoryService(db)
-	userService := service.NewUserService(db, validate)
+	userService := service.NewUserService(db)
 
-	aiController := controller.NewAiController(waService, aiService, historyService, validate)
-	authController := controller.NewAuthController(authService, userService)
-	userController := controller.NewUserController(userService, websocketHub)
+	processController := controller.NewProcessController(processService, historyService, validate)
+	authController := controller.NewAuthController(authService, userService, validate)
+	userController := controller.NewUserController(userService, processService, websocketHub, validate)
 
-	router := routes.SetupRouter(aiController, userController, authController)
+	router := routes.SetupRouter(processController, userController, authController)
 
 	corsHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

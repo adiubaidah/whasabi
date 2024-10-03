@@ -3,6 +3,7 @@ package controller
 import (
 	"adiubaidah/adi-bot/app"
 	"adiubaidah/adi-bot/helper"
+	"adiubaidah/adi-bot/middleware"
 	"adiubaidah/adi-bot/model"
 	"adiubaidah/adi-bot/service"
 	"context"
@@ -11,44 +12,49 @@ import (
 	"runtime"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 )
 
-type AiControllerImpl struct {
-	WaService     service.WaService
-	AiService     service.AiService
-	HistorService service.HistoryService
-	Validate      *validator.Validate
+type ProcessControllerImpl struct {
+	ProcessService service.ProcessService
+	HistorService  service.HistoryService
+	Validate       *validator.Validate
 }
 
-func NewAiController(waService service.WaService, aiService service.AiService, historyService service.HistoryService, validate *validator.Validate) AiController {
-	return &AiControllerImpl{
-		WaService:     waService,
-		AiService:     aiService,
-		HistorService: historyService,
-		Validate:      validate,
+func NewProcessController(processService service.ProcessService, historyService service.HistoryService, validate *validator.Validate) ProcessController {
+	return &ProcessControllerImpl{
+		ProcessService: processService,
+		HistorService:  historyService,
+		Validate:       validate,
 	}
 }
 
-func (a *AiControllerImpl) GetModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	ai := a.AiService.GetModel(request.Context())
+func (a *ProcessControllerImpl) GetModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	userId := uint(userContext["id"].(float64))
+
+	processModel := a.ProcessService.GetModel(userId)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
-		Data:   ai,
+		Data:   processModel,
 	})
 }
 
-func (a *AiControllerImpl) UpsertModel(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	createModelAi := new(model.CreateAIModel)
-	helper.ReadFromRequestBody(request, createModelAi)
-	err := a.Validate.Struct(createModelAi)
+func (a *ProcessControllerImpl) UpsertModel(writter http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	createProcessModel := new(model.CreateProcessModel)
+	helper.ReadFromRequestBody(request, createProcessModel)
+	err := a.Validate.Struct(createProcessModel)
 	helper.PanicIfError("Error validating request", err)
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	userId := uint(userContext["id"].(float64))
 
-	result := a.AiService.UpsertModel(request.Context(), *createModelAi)
+	result := a.ProcessService.UpsertModel(userId, *createProcessModel)
 
 	helper.WriteToResponseBody(writter, &model.WebResponse{
 		Code:   200,
@@ -58,10 +64,13 @@ func (a *AiControllerImpl) UpsertModel(writter http.ResponseWriter, request *htt
 
 }
 
-func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+func (a *ProcessControllerImpl) Activate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	userId := uint(userContext["id"].(float64))
 
 	//get user id from request context
-	modelAi := a.AiService.GetModel(request.Context())
+	modelAi := a.ProcessService.GetModel(userId)
 	fmt.Println("Active go routine after activation", runtime.NumGoroutine())
 
 	go func() {
@@ -69,7 +78,7 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 		app.Mu.Lock()
 		defer app.Mu.Unlock()
 		if _, exists := app.ActiveRoutines[modelAi.Phone]; !exists {
-			waActive := a.WaService.Activate(modelAi.Phone)
+			waActive := a.ProcessService.Activate(modelAi.Phone)
 			stopCh := make(chan struct{})
 			app.ActiveRoutines[modelAi.Phone] = stopCh
 			waActive.WaClient.AddEventHandler(func(evt any) {
@@ -90,7 +99,7 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 						histories, err := a.HistorService.GetHistory(v.Info.Sender.String(), waActive.WaClient.Store.ID.String())
 						helper.PanicIfError("Error getting history", err)
 						input := v.Message.GetConversation()
-						response := a.AiService.GenerateResponse(newContext, modelAi, histories, input)
+						response := a.ProcessService.GenerateResponse(modelAi, histories, input)
 						helper.PanicIfError("Error generating response", err)
 
 						_, err = waActive.WaClient.SendMessage(newContext, v.Info.Chat, &waE2E.Message{
@@ -121,7 +130,7 @@ func (a *AiControllerImpl) Activate(writer http.ResponseWriter, request *http.Re
 
 }
 
-func (a *AiControllerImpl) runAIService(stopCh chan struct{}, model *model.Ai) {
+func (a *ProcessControllerImpl) runAIService(stopCh chan struct{}, model *model.Process) {
 
 	for { // it will keep running until the stop channel is closed
 		select {
@@ -133,17 +142,20 @@ func (a *AiControllerImpl) runAIService(stopCh chan struct{}, model *model.Ai) {
 	}
 }
 
-func (a *AiControllerImpl) Deactivate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	modelAi := a.AiService.GetModel(request.Context())
-	a.WaService.Deactivate(request.Context(), modelAi.Phone)
+func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	userId := uint(userContext["id"].(float64))
+
+	modelProcess := a.ProcessService.GetModel(userId)
+	a.ProcessService.Deactivate(modelProcess.Phone)
 
 	app.Mu.Lock()
 	defer app.Mu.Unlock() // Ensure we unlock the mutex at the end
 
-	if stopCh, exists := app.ActiveRoutines[modelAi.Phone]; exists {
-		a.WaService.Deactivate(request.Context(), modelAi.Phone)
-		close(stopCh)                             // Close the stop channel to signal the Goroutine to stop
-		delete(app.ActiveRoutines, modelAi.Phone) // Remove the phone from the map
+	if stopCh, exists := app.ActiveRoutines[modelProcess.Phone]; exists {
+		a.ProcessService.Deactivate(modelProcess.Phone)
+		close(stopCh)                                  // Close the stop channel to signal the Goroutine to stop
+		delete(app.ActiveRoutines, modelProcess.Phone) // Remove the phone from the map
 	} else {
 		helper.WriteToResponseBody(writer, "No active session found for this phone")
 		return
@@ -157,13 +169,12 @@ func (a *AiControllerImpl) Deactivate(writer http.ResponseWriter, request *http.
 	fmt.Println("Number of Goroutines after deactivation:", runtime.NumGoroutine())
 }
 
-func (a *AiControllerImpl) CheckActivation(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	phone := request.URL.Query().Get("phone")
-	if phone == "" {
-		helper.PanicIfError("Error checking activation", fmt.Errorf("Phone number is required"))
-		return
-	}
-	status := a.WaService.CheckActivation(request.Context(), phone)
+func (a *ProcessControllerImpl) CheckActivation(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	userId := uint(userContext["id"].(float64))
+
+	modelProcess := a.ProcessService.GetModel(userId)
+	status := a.ProcessService.CheckActivation(modelProcess.Phone)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
@@ -172,13 +183,12 @@ func (a *AiControllerImpl) CheckActivation(writer http.ResponseWriter, request *
 
 }
 
-func (a *AiControllerImpl) CheckAuthentication(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	phone := request.URL.Query().Get("phone")
-	if phone == "" {
-		helper.PanicIfError("Error checking authentication", fmt.Errorf("Phone number is required"))
-		return
-	}
-	status := a.WaService.CheckAuthentication(request.Context(), phone)
+func (a *ProcessControllerImpl) CheckAuthentication(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	userId := uint(userContext["id"].(float64))
+
+	modelProcess := a.ProcessService.GetModel(userId)
+	status := a.ProcessService.CheckAuthentication(modelProcess.Phone)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",

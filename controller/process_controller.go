@@ -6,7 +6,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-type AiController interface {
+type ProcessController interface {
 	GetModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	UpsertModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	Activate(writer http.ResponseWriter, request *http.Request, params httprouter.Params)

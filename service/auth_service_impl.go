@@ -8,34 +8,29 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type AuthServiceImpl struct {
-	DB       *gorm.DB
-	Validate *validator.Validate
+	DB *gorm.DB
 }
 
-func NewAuthService(db *gorm.DB, validate *validator.Validate) *AuthServiceImpl {
+func NewAuthService(db *gorm.DB) *AuthServiceImpl {
 	return &AuthServiceImpl{
-		DB:       db,
-		Validate: validate,
+		DB: db,
 	}
 }
 
 func (a *AuthServiceImpl) Login(ctx context.Context, request model.UserLoginRequest) string {
 	// Validate the request
-	err := a.Validate.Struct(request)
-	helper.PanicIfError("Error when validating ", err)
 
 	// Check if the user exists
 	user := model.User{}
 	a.DB.Where("username = ?", request.Username).Take(&user)
 	// Compare the password with the hashed password
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
 	if err != nil {
 		panic(exception.NewUnauthorizedError("Invalid username or password"))
 	}

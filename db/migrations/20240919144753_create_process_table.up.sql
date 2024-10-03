@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS services (
+CREATE TABLE IF NOT EXISTS process (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS services (
     top_k FLOAT DEFAULT 64,
     top_p FLOAT DEFAULT 0.95,
     is_active BOOLEAN DEFAULT FALSE,
-    is_authenticated BOOLEAN DEFAULT FALSE,
+    is_authenticate BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -26,6 +26,6 @@ $$ LANGUAGE plpgsql;
 
 -- Create a trigger to call the function before any update
 CREATE TRIGGER update_updated_at
-BEFORE UPDATE ON services
+BEFORE UPDATE ON process
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();

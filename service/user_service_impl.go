@@ -4,41 +4,35 @@ import (
 	"adiubaidah/adi-bot/helper"
 	"adiubaidah/adi-bot/model"
 	"context"
-	"fmt"
 
-	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type UserServiceImpl struct {
-	DB       *gorm.DB
-	Validate *validator.Validate
+	DB *gorm.DB
 }
 
-func NewUserService(db *gorm.DB, validate *validator.Validate) UserService {
+func NewUserService(db *gorm.DB) UserService {
 	return &UserServiceImpl{
-		DB:       db,
-		Validate: validate,
+		DB: db,
 	}
 }
 
 // Create is a function to create a new user
 func (service *UserServiceImpl) Create(ctx context.Context, request model.UserCreateRequest) *model.User {
-	err := service.Validate.Struct(request)
-	helper.PanicIfError("", err)
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-	helper.PanicIfError("", err)
+	helper.PanicIfError("Erro generating password", err)
 
 	user := model.User{
-		Username: request.Username,
+		Username: request.Password,
 		Password: string(hashedPassword),
 		Role:     request.Role,
 	}
 
 	err = service.DB.Create(&user).Error
-	helper.PanicIfError("", err)
+	helper.PanicIfError("Error create user", err)
 
 	return &user
 
@@ -53,7 +47,6 @@ type UserSearchParams struct {
 func (service *UserServiceImpl) Find(params UserSearchParams) *model.UserDTO {
 	user := model.UserDTO{}
 	query := service.DB.Table("users").Select("id", "username", "role")
-	fmt.Println(params)
 	if params.UserId != 0 {
 		query = query.Where("id = ?", params.UserId)
 	}
@@ -68,14 +61,4 @@ func (service *UserServiceImpl) Find(params UserSearchParams) *model.UserDTO {
 	helper.PanicIfError("Error finding user", err)
 
 	return &user
-}
-
-func (service *UserServiceImpl) GetService(userId int) *model.Ai {
-
-	ai := model.Ai{}
-
-	err := service.DB.Where("user_id = ?", userId).Take(&ai).Error
-	helper.PanicIfError("Error getting service by user id", err)
-
-	return &ai
 }

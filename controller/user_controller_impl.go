@@ -8,18 +8,23 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/julienschmidt/httprouter"
 )
 
 type UserControllerImpl struct {
-	UserService service.UserService
-	WsHub       *app.WebSocketHub
+	UserService    service.UserService
+	ProcessService service.ProcessService
+	WsHub          *app.WebSocketHub
+	Validate       *validator.Validate
 }
 
-func NewUserController(userService service.UserService, wsHub *app.WebSocketHub) UserController {
+func NewUserController(userService service.UserService, processService service.ProcessService, wsHub *app.WebSocketHub, validate *validator.Validate) UserController {
 	return &UserControllerImpl{
-		UserService: userService,
-		WsHub:       wsHub,
+		UserService:    userService,
+		ProcessService: processService,
+		WsHub:          wsHub,
+		Validate:       validate,
 	}
 }
 
@@ -42,7 +47,7 @@ func (controller *UserControllerImpl) WebSocket(writer http.ResponseWriter, requ
 
 	helper.PanicIfError("Error when convert", err)
 
-	ai := controller.UserService.GetService(userId)
+	ai := controller.ProcessService.GetModel(uint(userId))
 
 	controller.WsHub.ServeWebSocket(writer, request, ai.Phone)
 }

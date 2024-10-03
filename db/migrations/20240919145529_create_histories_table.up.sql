@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS histories (
     content TEXT NOT NULL,
     role_as ROLE_AS NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (service_id) REFERENCES services (id)
+    FOREIGN KEY (service_id) REFERENCES process (id)
 );

@@ -18,19 +18,19 @@ func adaptHandle(h httprouter.Handle) http.HandlerFunc {
 	}
 }
 
-func SetupRouter(aiCtrl controller.AiController, userCtrl controller.UserController, authCtrl controller.AuthController) *httprouter.Router {
+func SetupRouter(processCtrl controller.ProcessController, userCtrl controller.UserController, authCtrl controller.AuthController) *httprouter.Router {
 	router := httprouter.New()
 	router.Handler(http.MethodPost, "/auth/login", adaptHandle(authCtrl.Login))
 	router.Handler(http.MethodGet, "/auth/is-auth", middleware.AuthMiddleware(adaptHandle(authCtrl.IsAuth)))
 	router.Handler(http.MethodPost, "/auth/logout", middleware.AuthMiddleware(adaptHandle(authCtrl.Logout)))
 
 	// Wrap AI controller routes with AuthMiddleware (for authenticated users)
-	router.Handler(http.MethodGet, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.GetModel)))
-	router.Handler(http.MethodPost, "/ai/model", middleware.AuthMiddleware(adaptHandle(aiCtrl.UpsertModel)))
-	router.Handler(http.MethodPost, "/ai/activate", middleware.AuthMiddleware(adaptHandle(aiCtrl.Activate)))
-	router.Handler(http.MethodPost, "/ai/deactivate", middleware.AuthMiddleware(adaptHandle(aiCtrl.Deactivate)))
-	router.Handler(http.MethodGet, "/ai/check-activation", middleware.AuthMiddleware(adaptHandle(aiCtrl.CheckActivation)))
-	router.Handler(http.MethodGet, "/ai/check-authentication", middleware.AuthMiddleware(adaptHandle(aiCtrl.CheckAuthentication)))
+	router.Handler(http.MethodGet, "/process/model", middleware.AuthMiddleware(adaptHandle(processCtrl.GetModel)))
+	router.Handler(http.MethodPost, "/process/model", middleware.AuthMiddleware(adaptHandle(processCtrl.UpsertModel)))
+	router.Handler(http.MethodPost, "/process/activate", middleware.AuthMiddleware(adaptHandle(processCtrl.Activate)))
+	router.Handler(http.MethodPost, "/process/deactivate", middleware.AuthMiddleware(adaptHandle(processCtrl.Deactivate)))
+	router.Handler(http.MethodGet, "/process/check-activation", middleware.AuthMiddleware(adaptHandle(processCtrl.CheckActivation)))
+	router.Handler(http.MethodGet, "/process/check-authentication", middleware.AuthMiddleware(adaptHandle(processCtrl.CheckAuthentication)))
 
 	// Wrap User controller routes with AdminMiddleware (for admin role only)
 	router.Handler(http.MethodPost, "/user", middleware.AuthMiddleware(middleware.AdminMiddleware(adaptHandle(userCtrl.Create))))

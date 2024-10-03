@@ -11,5 +11,5 @@ type History struct {
 	RoleAs    string    `gorm:"colum:role_as;type:varchar(255);not null"`
 	CreatedAt time.Time `gorm:"colum:created_at;autoCreateTime"`
 
-	Service *Ai `gorm:"foreignKey:service_id;references:id"`
+	Service *Process `gorm:"foreignKey:service_id;references:id"`
 }

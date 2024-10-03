@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
 )
@@ -15,12 +16,14 @@ import (
 type AuthControllerImpl struct {
 	AuthService service.AuthService
 	service.UserService
+	Validate *validator.Validate
 }
 
-func NewAuthController(authService service.AuthService, userService service.UserService) AuthController {
+func NewAuthController(authService service.AuthService, userService service.UserService, validate *validator.Validate) AuthController {
 	return &AuthControllerImpl{
 		AuthService: authService,
 		UserService: userService,
+		Validate:    validate,
 	}
 }
 
@@ -28,6 +31,8 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 	userLoginRequest := new(model.UserLoginRequest)
 	helper.ReadFromRequestBody(request, userLoginRequest)
 
+	err := controller.Validate.Struct(userLoginRequest)
+	helper.PanicIfError("Error validating request", err)
 	token := controller.AuthService.Login(request.Context(), *userLoginRequest)
 
 	cookie := http.Cookie{

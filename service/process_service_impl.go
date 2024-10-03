@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/generative-ai-go/genai"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -24,16 +25,19 @@ type UserWaStatus struct {
 	StartTime       time.Time
 }
 
-type WaServiceImpl struct {
+type ProcessServiceImpl struct {
 	UserStatusMap map[string]*UserWaStatus // Map to track status by phone number
 	WebSocketHub  *app.WebSocketHub
+	Client        *genai.Client
 	mu            sync.Mutex
-	DB            *gorm.DB
+
+	DB *gorm.DB
 }
 
 // Create new WhatsApp and AI service
-func NewWaService(waWebSocketHub *app.WebSocketHub, db *gorm.DB) WaService {
-	return &WaServiceImpl{
+func NewProcessService(client *genai.Client, waWebSocketHub *app.WebSocketHub, db *gorm.DB) ProcessService {
+	return &ProcessServiceImpl{
+		Client:        client,
 		UserStatusMap: make(map[string]*UserWaStatus),
 		WebSocketHub:  waWebSocketHub,
 		DB:            db,
@@ -41,7 +45,7 @@ func NewWaService(waWebSocketHub *app.WebSocketHub, db *gorm.DB) WaService {
 }
 
 // Function to activate WhatsApp and AI for a user
-func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
+func (s *ProcessServiceImpl) Activate(phone string) *UserWaStatus {
 	// If the service is already active, no need to activate again
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -67,7 +71,7 @@ func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
 
 	// If not authenticated, handle the authentication process
 	if !status.IsAuthenticated {
-		s.handleQRCodeAuthentication(phone, status)
+		s.handleQRCodeAuthentication(phone, status, s.DB)
 	} else {
 		status.WaClient.Connect()
 
@@ -77,7 +81,7 @@ func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
 			Data:   "Connection Successful!",
 		})
 	}
-	err := s.DB.Model(&model.Ai{}).Where("phone = ?", phone).Updates(&model.Ai{
+	err := s.DB.Model(&model.Process{}).Where("phone = ?", phone).Updates(&model.Process{
 		IsActive:        status.IsActive,
 		IsAuthenticated: status.IsAuthenticated,
 	}).Error
@@ -88,7 +92,7 @@ func (s *WaServiceImpl) Activate(phone string) *UserWaStatus {
 }
 
 // handleQRCodeAuthentication manages the WhatsApp authentication process using QR code
-func (s *WaServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaStatus) {
+func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaStatus, db *gorm.DB) {
 	context := context.Background()
 	qrChan, err := status.WaClient.GetQRChannel(context)
 	helper.PanicIfError("Error getting QR channel", err)
@@ -125,6 +129,7 @@ func (s *WaServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaS
 						"type": "authenticated",
 					},
 				})
+				db.Model(&model.Process{}).Where("phone = ?", phone).Update("is_authenticated", true)
 				return
 			case "timeout":
 				fmt.Println("Timeout")
@@ -137,7 +142,7 @@ func (s *WaServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaS
 					},
 				})
 				if stopCh, exists := app.ActiveRoutines[phone]; exists {
-					s.Deactivate(context, phone)
+					s.Deactivate(phone)
 					close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
 					delete(app.ActiveRoutines, phone) // Remove the phone from the map
 				}
@@ -150,7 +155,7 @@ func (s *WaServiceImpl) handleQRCodeAuthentication(phone string, status *UserWaS
 }
 
 // CheckActivation checks if WhatsApp service is active for the given phone number
-func (s *WaServiceImpl) Deactivate(ctx context.Context, phone string) bool {
+func (s *ProcessServiceImpl) Deactivate(phone string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -160,13 +165,15 @@ func (s *WaServiceImpl) Deactivate(ctx context.Context, phone string) bool {
 		status.WaClient.Disconnect()
 		err := status.Container.Close()
 		helper.PanicIfError("Error closing SQL container", err)
+		err = s.DB.Model(&model.Process{}).Update("is_active", false).Where("phone = ?", phone).Error
+		helper.PanicIfError("Error updating Process model", err)
 		// Here, cancel any active context or Goroutines related to this phone number
 		return true
 	}
 	return false
 }
 
-func (s *WaServiceImpl) CheckActivation(ctx context.Context, phone string) bool {
+func (s *ProcessServiceImpl) CheckActivation(phone string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -177,14 +184,113 @@ func (s *WaServiceImpl) CheckActivation(ctx context.Context, phone string) bool 
 	return false
 }
 
-// CheckAuthentication checks if WhatsApp service is authenticated for the given phone number
-func (s *WaServiceImpl) CheckAuthentication(ctx context.Context, phone string) bool {
+func (s *ProcessServiceImpl) CheckAuthentication(phone string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Check if status exists and return its IsAuthenticated status
 	if status, exists := s.UserStatusMap[phone]; exists {
 		return status.IsAuthenticated
 	}
 	return false
+}
+
+func (service *ProcessServiceImpl) GetModel(userId uint) *model.Process {
+	// Extract user information from context
+
+	// Find AI model by user ID
+	aiModel := &model.Process{}
+	result := service.DB.Where("user_id = ?", userId).Take(&aiModel)
+
+	// Check if record was not found
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+		// Panic on unexpected errors
+		panic(result.Error)
+	}
+
+	return aiModel
+
+}
+
+func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.CreateProcessModel) *model.Process {
+	// user := ctx.Value(middleware.UserContext).(jwt.MapClaims)
+	// userID := uint(user["id"].(float64))
+
+	// Find AI model by user ID
+	aiModel := &model.Process{}
+	result := service.DB.Where("user_id = ?", userId).Take(&aiModel)
+
+	// Check if record was not found
+	var err error
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+		// Panic on unexpected errors
+		panic(result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		// If no AI model exists for this user, create a new one
+		fmt.Println("Create new AI model")
+		newAiModel := &model.Process{
+			UserID: userId,
+			CreateProcessModel: model.CreateProcessModel{
+				Name:        modelAi.Name,
+				Phone:       modelAi.Phone,
+				Instruction: modelAi.Instruction,
+				Temperature: modelAi.Temperature,
+				TopK:        modelAi.TopK,
+				TopP:        modelAi.TopP,
+			},
+			IsActive:        false,
+			IsAuthenticated: false,
+		}
+
+		err = service.DB.Create(&newAiModel).Error
+		aiModel = newAiModel // Assign new AI model to return later
+	} else {
+		// Update existing AI model
+		fmt.Println("Update existing AI model")
+		err = service.DB.Model(&aiModel).Where("phone = ?", modelAi.Phone).Updates(&model.CreateProcessModel{
+			Name:        modelAi.Name,
+			Phone:       modelAi.Phone,
+			Instruction: modelAi.Instruction,
+			Temperature: modelAi.Temperature,
+			TopK:        modelAi.TopK,
+			TopP:        modelAi.TopP,
+		}).Error
+	}
+
+	helper.PanicIfError("Error while upsert", err)
+
+	// Return the updated/new AI model
+	return aiModel
+}
+
+func (service *ProcessServiceImpl) GenerateResponse(modelAi *model.Process, histories *[]model.History, input string) string {
+	context := context.Background()
+	var sessionHistory []*genai.Content
+	for _, history := range *histories {
+		sessionHistory = append(sessionHistory, &genai.Content{
+			Role:  history.RoleAs,
+			Parts: []genai.Part{genai.Text(history.Content)},
+		})
+	}
+
+	// Generate response
+	option := app.AiModelOption{
+		Instruction: modelAi.Instruction,
+		TopK:        modelAi.TopK,
+		TopP:        modelAi.TopP,
+		Temperature: modelAi.Temperature,
+	}
+
+	model := app.GetAIModel(service.Client, &option)
+	session := model.StartChat()
+
+	if (sessionHistory != nil) && (len(sessionHistory) > 0) {
+		session.History = sessionHistory
+	}
+
+	resp, err := session.SendMessage(context, genai.Text(input))
+	helper.PanicIfError("Error saat mengambil respon:", err)
+
+	return string(resp.Candidates[0].Content.Parts[0].(genai.Text))
 }

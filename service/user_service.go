@@ -7,6 +7,5 @@ import (
 
 type UserService interface {
 	Create(ctx context.Context, request model.UserCreateRequest) *model.User
-	GetService(userId int) *model.Ai
 	Find(params UserSearchParams) *model.UserDTO
 }

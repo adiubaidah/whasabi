@@ -1,11 +1,11 @@
 package model
 
 type User struct {
-	ID       int    `gorm:"primaryKey;colum:id;autoIncrement"`
-	Username string `gorm:"colum:username;type:varchar(255);not null"`
-	Password string `gorm:"colum:password;type:varchar(255);not null"`
-	Role     string `gorm:"colum:role;not null"`
-	Service  Ai     `gorm:"foreignKey:user_id;references:id"`
+	ID       int     `gorm:"primaryKey;colum:id;autoIncrement"`
+	Username string  `gorm:"colum:username;type:varchar(255);not null"`
+	Password string  `gorm:"colum:password;type:varchar(255);not null"`
+	Role     string  `gorm:"colum:role;not null"`
+	Process  Process `gorm:"foreignKey:user_id;references:id"`
 }
 
 type UserDTO struct {
