@@ -1,9 +1,10 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/model"
 	"context"
+
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -26,7 +27,7 @@ func (service *UserServiceImpl) Create(ctx context.Context, request model.UserCr
 	helper.PanicIfError("Erro generating password", err)
 
 	user := model.User{
-		Username: request.Password,
+		Username: request.Username,
 		Password: string(hashedPassword),
 		Role:     request.Role,
 	}
@@ -44,21 +45,30 @@ type UserSearchParams struct {
 	Role     string
 }
 
-func (service *UserServiceImpl) Find(params UserSearchParams) *model.UserDTO {
-	user := model.UserDTO{}
+func (service *UserServiceImpl) FindById(userId int) *model.UserDTO {
+	var user model.UserDTO
+	err := service.DB.Table("users").Select("id", "username", "role").Where("id = ?", userId).First(&user).Error
+	helper.PanicIfError("Error finding user by ID", err)
+	return &user
+}
+
+func (service *UserServiceImpl) FindByUsername(username string) *model.UserDTO {
+	var user model.UserDTO
+	err := service.DB.Table("users").Select("id", "username", "role").Where("username = ?", username).First(&user).Error
+	helper.PanicIfError("Error finding user by username", err)
+	return &user
+}
+
+func (service *UserServiceImpl) Find(params UserSearchParams) *[]model.UserDTO {
+	var users []model.UserDTO
 	query := service.DB.Table("users").Select("id", "username", "role")
-	if params.UserId != 0 {
-		query = query.Where("id = ?", params.UserId)
-	}
-	if params.Username != "" {
-		query = query.Where("username = ?", params.Username)
-	}
+
 	if params.Role != "" {
 		query = query.Where("role = ?", params.Role)
 	}
 
-	err := query.Take(&user).Error
-	helper.PanicIfError("Error finding user", err)
+	err := query.Find(&users).Error
+	helper.PanicIfError("Error finding users", err)
 
-	return &user
+	return &users
 }

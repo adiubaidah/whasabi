@@ -17,13 +17,18 @@ type Process struct {
 	ID     uint `gorm:"primaryKey" json:"id"`
 	UserID uint `gorm:"column:user_id;not null" json:"user_id"` // Foreign key to User
 	CreateProcessModel
-	IsActive        bool      `gorm:"default:false" json:"is_active"`
 	IsAuthenticated bool      `gorm:"default:false" json:"is_authenticated"`
 	CreatedAt       time.Time `gorm:"default:autoCreateTime" json:"created_at"`
 	User            *User     `gorm:"foreignKey:user_id;references:id"`
-	Histories       []History `gorm:"foreignKey:service_id;references:id"`
+	Histories       []History `gorm:"foreignKey:process_id;references:id"`
 }
 
 func (ai *Process) TableName() string {
 	return "process"
+}
+
+type ProcessWithUserDTO struct {
+	Process
+	User     UserDTO `json:"user"`
+	IsActive bool    `json:"is_active"`
 }

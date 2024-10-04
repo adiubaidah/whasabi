@@ -1,11 +1,12 @@
 package app
 
 import (
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/model"
 	"fmt"
 	"net/http"
 	"sync"
+
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
 
 	"github.com/gorilla/websocket"
 )
@@ -64,7 +65,7 @@ func (hub *WebSocketHub) ServeWebSocket(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (hub *WebSocketHub) SendMessage(phone string, response model.WebResponse) {
+func (hub *WebSocketHub) SendMessage(phone string, response *model.WebResponse) {
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
 

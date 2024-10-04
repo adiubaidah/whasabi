@@ -1,12 +1,13 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/exception"
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/model"
 	"context"
 	"os"
 	"time"
+
+	"github.com/adiubaidah/wasabi/exception"
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"

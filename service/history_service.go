@@ -1,8 +1,8 @@
 package service
 
-import "adiubaidah/adi-bot/model"
+import "github.com/adiubaidah/wasabi/model"
 
 type HistoryService interface {
-	InsertHistory(serviceId uint, sender, receiver, content, role string) error
+	InsertHistory(processId uint, sender, receiver, content, role string) error
 	GetHistory(sender string, receiver string) (*[]model.History, error)
 }

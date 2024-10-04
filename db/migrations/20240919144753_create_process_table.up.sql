@@ -7,8 +7,7 @@ CREATE TABLE IF NOT EXISTS process (
     temperature FLOAT NOT NULL,
     top_k FLOAT DEFAULT 64,
     top_p FLOAT DEFAULT 0.95,
-    is_active BOOLEAN DEFAULT FALSE,
-    is_authenticate BOOLEAN DEFAULT FALSE,
+    is_authenticated BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

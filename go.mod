@@ -1,4 +1,4 @@
-module adiubaidah/adi-bot
+module github.com/adiubaidah/wasabi
 
 go 1.23.0
 

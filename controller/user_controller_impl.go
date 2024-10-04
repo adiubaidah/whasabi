@@ -1,12 +1,13 @@
 package controller
 
 import (
-	"adiubaidah/adi-bot/app"
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/model"
-	"adiubaidah/adi-bot/service"
 	"net/http"
 	"strconv"
+
+	"github.com/adiubaidah/wasabi/app"
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
+	"github.com/adiubaidah/wasabi/service"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/julienschmidt/httprouter"
@@ -39,6 +40,15 @@ func (controller *UserControllerImpl) Create(writer http.ResponseWriter, request
 			"id":       user.ID,
 			"username": user.Username,
 		},
+	})
+}
+
+func (controller *UserControllerImpl) List(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	users := controller.UserService.Find(service.UserSearchParams{})
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   users,
 	})
 }
 

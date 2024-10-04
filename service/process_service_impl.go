@@ -1,13 +1,16 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/app"
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/model"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/adiubaidah/wasabi/app"
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/skip2/go-qrcode"
@@ -44,6 +47,26 @@ func NewProcessService(client *genai.Client, waWebSocketHub *app.WebSocketHub, d
 	}
 }
 
+func (s *ProcessServiceImpl) ListProcess() *[]model.ProcessWithUserDTO {
+	processes := []model.ProcessWithUserDTO{}
+	err := s.DB.Preload("User", func(db *gorm.DB) *gorm.DB {
+		return db.Table("users").Select("id", "username", "role")
+
+	}).Find(&processes).Error
+
+	helper.PanicIfError("Error saat mengambil AI model:", err)
+	for i := range processes {
+		process := &processes[i]
+		if status, exists := s.UserStatusMap[process.Phone]; exists {
+			process.IsActive = status.IsActive
+		} else {
+			process.IsActive = false
+		}
+	}
+
+	return &processes
+}
+
 // Function to activate WhatsApp and AI for a user
 func (s *ProcessServiceImpl) Activate(phone string) *UserWaStatus {
 	// If the service is already active, no need to activate again
@@ -75,14 +98,13 @@ func (s *ProcessServiceImpl) Activate(phone string) *UserWaStatus {
 	} else {
 		status.WaClient.Connect()
 
-		s.WebSocketHub.SendMessage(phone, model.WebResponse{
+		s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 			Code:   200,
 			Status: "success",
 			Data:   "Connection Successful!",
 		})
 	}
 	err := s.DB.Model(&model.Process{}).Where("phone = ?", phone).Updates(&model.Process{
-		IsActive:        status.IsActive,
 		IsAuthenticated: status.IsAuthenticated,
 	}).Error
 
@@ -109,7 +131,7 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 					fmt.Println("Error generating QR code:", err)
 				} else {
 					fmt.Printf("QR code generated for phone %s. Scan it using WhatsApp!\n", phone)
-					s.WebSocketHub.SendMessage(phone, model.WebResponse{
+					s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 						Code:   200,
 						Status: "success",
 						Data: map[string]string{
@@ -122,7 +144,7 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 				s.mu.Lock()
 				defer s.mu.Unlock()
 				status.IsAuthenticated = true
-				s.WebSocketHub.SendMessage(phone, model.WebResponse{
+				s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 					Code:   200,
 					Status: "success",
 					Data: map[string]string{
@@ -134,7 +156,7 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 			case "timeout":
 				fmt.Println("Timeout")
 				status.WaClient.Disconnect()
-				s.WebSocketHub.SendMessage(phone, model.WebResponse{
+				s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 					Code:   408,
 					Status: "error",
 					Data: map[string]string{
@@ -151,6 +173,7 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 				fmt.Println("Unhandled QR event:", evt.Event)
 			}
 		}
+
 	}()
 }
 
@@ -165,9 +188,6 @@ func (s *ProcessServiceImpl) Deactivate(phone string) bool {
 		status.WaClient.Disconnect()
 		err := status.Container.Close()
 		helper.PanicIfError("Error closing SQL container", err)
-		err = s.DB.Model(&model.Process{}).Update("is_active", false).Where("phone = ?", phone).Error
-		helper.PanicIfError("Error updating Process model", err)
-		// Here, cancel any active context or Goroutines related to this phone number
 		return true
 	}
 	return false
@@ -187,11 +207,12 @@ func (s *ProcessServiceImpl) CheckActivation(phone string) bool {
 func (s *ProcessServiceImpl) CheckAuthentication(phone string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	modelProcess := &model.Process{}
+	// Check if status exists and return its IsAuthenticated status
+	err := s.DB.Take(modelProcess, "phone = ?", phone).Error
+	helper.PanicIfError("Error saat mengambil AI model:", err)
 
-	if status, exists := s.UserStatusMap[phone]; exists {
-		return status.IsAuthenticated
-	}
-	return false
+	return modelProcess.IsAuthenticated
 }
 
 func (service *ProcessServiceImpl) GetModel(userId uint) *model.Process {
@@ -212,8 +233,6 @@ func (service *ProcessServiceImpl) GetModel(userId uint) *model.Process {
 }
 
 func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.CreateProcessModel) *model.Process {
-	// user := ctx.Value(middleware.UserContext).(jwt.MapClaims)
-	// userID := uint(user["id"].(float64))
 
 	// Find AI model by user ID
 	aiModel := &model.Process{}
@@ -239,7 +258,6 @@ func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.Create
 				TopK:        modelAi.TopK,
 				TopP:        modelAi.TopP,
 			},
-			IsActive:        false,
 			IsAuthenticated: false,
 		}
 
@@ -293,4 +311,21 @@ func (service *ProcessServiceImpl) GenerateResponse(modelAi *model.Process, hist
 	helper.PanicIfError("Error saat mengambil respon:", err)
 
 	return string(resp.Candidates[0].Content.Parts[0].(genai.Text))
+}
+
+func (service *ProcessServiceImpl) Delete(phone string) bool {
+
+	err := service.DB.Where("phone = ?", phone).Delete(&model.Process{}).Error
+	helper.PanicIfError("Error saat menghapus AI model:", err)
+
+	filePath := filepath.Join("session", "wa-"+phone+".db")
+	if _, err := os.Stat(filePath); err == nil {
+		// Attempt to delete the file
+		err = os.Remove(filePath)
+		if err != nil {
+			helper.PanicIfError("Error saat menghapus file sesi:", err)
+		}
+	}
+
+	return true
 }

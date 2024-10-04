@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/adiubaidah/wasabi/model"
 )
 
 func PanicIfError(message string, err error) {
@@ -21,11 +23,13 @@ func ReadFromRequestBody(request *http.Request, result any) {
 	PanicIfError("", err)
 }
 
-func WriteToResponseBody(writer http.ResponseWriter, response any) {
+func WriteToResponseBody(writer http.ResponseWriter, response *model.WebResponse) {
 	writer.Header().Add("Content-Type", "application/json")
+	writer.WriteHeader(response.Code)
+
 	encoder := json.NewEncoder(writer)
 	err := encoder.Encode(response)
-	PanicIfError("", err)
+	PanicIfError("Error encoding response", err)
 }
 
 //get user from

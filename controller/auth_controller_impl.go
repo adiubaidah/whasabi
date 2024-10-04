@@ -1,12 +1,13 @@
 package controller
 
 import (
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/middleware"
-	"adiubaidah/adi-bot/model"
-	"adiubaidah/adi-bot/service"
 	"net/http"
 	"time"
+
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/middleware"
+	"github.com/adiubaidah/wasabi/model"
+	"github.com/adiubaidah/wasabi/service"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
@@ -52,9 +53,17 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 func (controller *AuthControllerImpl) IsAuth(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	user := controller.UserService.Find(service.UserSearchParams{
-		UserId: int(userContext["id"].(float64)),
-	})
+	userId := int(userContext["id"].(float64))
+	if userId == 0 {
+		helper.WriteToResponseBody(writer, &model.WebResponse{
+			Code:   401,
+			Status: "error",
+			Data:   "Unauthorized",
+		})
+		return
+	}
+
+	user := controller.UserService.FindById(userId)
 
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,

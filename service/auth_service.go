@@ -1,8 +1,9 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/model"
 	"context"
+
+	"github.com/adiubaidah/wasabi/model"
 )
 
 type AuthService interface {

@@ -1,2 +1,6 @@
 command.sh
-.env
+.vscode
+.git
+.gitignore
+session/*
+public/*

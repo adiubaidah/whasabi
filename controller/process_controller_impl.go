@@ -1,15 +1,17 @@
 package controller
 
 import (
-	"adiubaidah/adi-bot/app"
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/middleware"
-	"adiubaidah/adi-bot/model"
-	"adiubaidah/adi-bot/service"
 	"context"
 	"fmt"
 	"net/http"
 	"runtime"
+	"strconv"
+
+	"github.com/adiubaidah/wasabi/app"
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/middleware"
+	"github.com/adiubaidah/wasabi/model"
+	"github.com/adiubaidah/wasabi/service"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
@@ -33,12 +35,35 @@ func NewProcessController(processService service.ProcessService, historyService 
 	}
 }
 
+func (a *ProcessControllerImpl) getSearchByUserId(request *http.Request, userContext jwt.MapClaims) (uint, error) {
+	userRole := userContext["role"].(string)
+	if userRole == "admin" {
+		userIdStr := request.URL.Query().Get("user_id")
+		userIdInt, err := strconv.Atoi(userIdStr)
+		if err != nil {
+			return 0, fmt.Errorf("error converting user id to int: %w", err)
+		}
+		return uint(userIdInt), nil
+	}
+	return uint(userContext["id"].(float64)), nil
+}
+
+func (a *ProcessControllerImpl) ListProcess(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	processes := a.ProcessService.ListProcess()
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   processes,
+	})
+}
+
 func (a *ProcessControllerImpl) GetModel(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	userId := uint(userContext["id"].(float64))
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
 
-	processModel := a.ProcessService.GetModel(userId)
+	processModel := a.ProcessService.GetModel(searchByUserId)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
@@ -52,9 +77,9 @@ func (a *ProcessControllerImpl) UpsertModel(writter http.ResponseWriter, request
 	err := a.Validate.Struct(createProcessModel)
 	helper.PanicIfError("Error validating request", err)
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	userId := uint(userContext["id"].(float64))
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
 
-	result := a.ProcessService.UpsertModel(userId, *createProcessModel)
+	result := a.ProcessService.UpsertModel(searchByUserId, *createProcessModel)
 
 	helper.WriteToResponseBody(writter, &model.WebResponse{
 		Code:   200,
@@ -67,10 +92,11 @@ func (a *ProcessControllerImpl) UpsertModel(writter http.ResponseWriter, request
 func (a *ProcessControllerImpl) Activate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	userId := uint(userContext["id"].(float64))
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
 
 	//get user id from request context
-	modelAi := a.ProcessService.GetModel(userId)
+	modelAi := a.ProcessService.GetModel(searchByUserId)
 	fmt.Println("Active go routine after activation", runtime.NumGoroutine())
 
 	go func() {
@@ -144,9 +170,10 @@ func (a *ProcessControllerImpl) runAIService(stopCh chan struct{}, model *model.
 
 func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	userId := uint(userContext["id"].(float64))
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
 
-	modelProcess := a.ProcessService.GetModel(userId)
+	modelProcess := a.ProcessService.GetModel(searchByUserId)
 	a.ProcessService.Deactivate(modelProcess.Phone)
 
 	app.Mu.Lock()
@@ -157,7 +184,11 @@ func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *
 		close(stopCh)                                  // Close the stop channel to signal the Goroutine to stop
 		delete(app.ActiveRoutines, modelProcess.Phone) // Remove the phone from the map
 	} else {
-		helper.WriteToResponseBody(writer, "No active session found for this phone")
+		helper.WriteToResponseBody(writer, &model.WebResponse{
+			Code:   400,
+			Status: "error",
+			Data:   "AI service is not active",
+		})
 		return
 	}
 
@@ -171,9 +202,10 @@ func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *
 
 func (a *ProcessControllerImpl) CheckActivation(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	userId := uint(userContext["id"].(float64))
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
 
-	modelProcess := a.ProcessService.GetModel(userId)
+	modelProcess := a.ProcessService.GetModel(searchByUserId)
 	status := a.ProcessService.CheckActivation(modelProcess.Phone)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
@@ -185,13 +217,35 @@ func (a *ProcessControllerImpl) CheckActivation(writer http.ResponseWriter, requ
 
 func (a *ProcessControllerImpl) CheckAuthentication(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
-	userId := uint(userContext["id"].(float64))
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
 
-	modelProcess := a.ProcessService.GetModel(userId)
+	modelProcess := a.ProcessService.GetModel(searchByUserId)
 	status := a.ProcessService.CheckAuthentication(modelProcess.Phone)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
 		Data:   status,
+	})
+}
+
+func (a *ProcessControllerImpl) Delete(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
+
+	modelProcess := a.ProcessService.GetModel(searchByUserId)
+	if a.ProcessService.CheckActivation(modelProcess.Phone) {
+		helper.WriteToResponseBody(writer, &model.WebResponse{
+			Code:   400,
+			Status: "error",
+			Data:   "Please deactivate the AI service first",
+		})
+	}
+	result := a.ProcessService.Delete(modelProcess.Phone)
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   result,
 	})
 }

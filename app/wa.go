@@ -1,8 +1,9 @@
 package app
 
 import (
-	"adiubaidah/adi-bot/helper"
 	"fmt"
+
+	"github.com/adiubaidah/wasabi/helper"
 
 	_ "github.com/mattn/go-sqlite3"
 	"go.mau.fi/whatsmeow"

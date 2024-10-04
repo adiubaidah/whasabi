@@ -1,7 +1,7 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/model"
+	"github.com/adiubaidah/wasabi/model"
 
 	"gorm.io/gorm"
 )
@@ -14,9 +14,9 @@ func NewHistoryService(DB *gorm.DB) HistoryService {
 	return &HistoryServiceImpl{DB: DB}
 }
 
-func (s *HistoryServiceImpl) InsertHistory(serviceId uint, sender, receiver, content, role string) error {
+func (s *HistoryServiceImpl) InsertHistory(processId uint, sender, receiver, content, role string) error {
 	history := model.History{
-		ServiceID: serviceId,
+		ProcessID: processId,
 		Sender:    sender,
 		Receiver:  receiver,
 		Content:   content,

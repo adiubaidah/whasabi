@@ -1,11 +1,11 @@
 package middleware
 
 import (
-	"adiubaidah/adi-bot/exception"
-	"adiubaidah/adi-bot/helper"
 	"context"
-	"fmt"
 	"net/http"
+
+	"github.com/adiubaidah/wasabi/exception"
+	"github.com/adiubaidah/wasabi/helper"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -20,7 +20,6 @@ const UserContext contextKey = "user"
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("From middleware")
 		cookie, err := r.Cookie("token")
 		if err != nil {
 			panic(exception.NewUnauthorizedError("Unauthorized"))

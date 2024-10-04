@@ -1,9 +1,10 @@
 package exception
 
 import (
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/model"
 	"net/http"
+
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -33,9 +34,8 @@ func validationErrors(writer http.ResponseWriter, _ *http.Request, err interface
 	exception, ok := err.(validator.ValidationErrors) //if convertion is success, ok will be true
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusBadRequest)
 
-		webResponse := model.WebResponse{
+		webResponse := &model.WebResponse{
 			Code:   http.StatusBadRequest,
 			Status: "BAD REQUEST",
 			Data:   exception.Error(),
@@ -52,9 +52,8 @@ func notFoundError(writer http.ResponseWriter, _ *http.Request, err interface{})
 	exception, ok := err.(NotFoundError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusNotFound)
 
-		webResponse := model.WebResponse{
+		webResponse := &model.WebResponse{
 			Code:   http.StatusNotFound,
 			Status: "NOT FOUND",
 			Data:   exception.Error,
@@ -71,9 +70,8 @@ func notAuthorizedError(writer http.ResponseWriter, _ *http.Request, err interfa
 	exception, ok := err.(UnauthorizedError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusUnauthorized)
 
-		webResponse := model.WebResponse{
+		webResponse := &model.WebResponse{
 			Code:   http.StatusUnauthorized,
 			Status: "UNAUTHORIZED",
 			Data:   exception.Error,
@@ -90,9 +88,8 @@ func forbiddenError(writer http.ResponseWriter, _ *http.Request, err interface{}
 	exception, ok := err.(ForbiddenError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusForbidden)
 
-		webResponse := model.WebResponse{
+		webResponse := &model.WebResponse{
 			Code:   http.StatusForbidden,
 			Status: "FORBIDDEN",
 			Data:   exception.Error,
@@ -107,9 +104,8 @@ func forbiddenError(writer http.ResponseWriter, _ *http.Request, err interface{}
 
 func internalServerError(writer http.ResponseWriter, _ *http.Request, err interface{}) {
 	writer.Header().Set("Content-Type", "application/json")
-	writer.WriteHeader(http.StatusInternalServerError)
 
-	webResponse := model.WebResponse{
+	webResponse := &model.WebResponse{
 		Code:   http.StatusInternalServerError,
 		Status: "INTERNAL SERVER ERROR",
 		Data:   err,

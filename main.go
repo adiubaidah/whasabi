@@ -1,16 +1,17 @@
 package main
 
 import (
-	"adiubaidah/adi-bot/app"
-	"adiubaidah/adi-bot/controller"
-	"adiubaidah/adi-bot/db"
-	"adiubaidah/adi-bot/helper"
-	"adiubaidah/adi-bot/routes"
-	"adiubaidah/adi-bot/service"
 	"context"
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/adiubaidah/wasabi/app"
+	"github.com/adiubaidah/wasabi/controller"
+	"github.com/adiubaidah/wasabi/db"
+	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/routes"
+	"github.com/adiubaidah/wasabi/service"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -53,7 +54,7 @@ func main() {
 		Addr:    "localhost:" + PORT,
 		Handler: corsHandler(router),
 	}
-	fmt.Println("Server started at localhost:" + PORT)
+	fmt.Println("Server has started at localhost:" + PORT)
 	err := server.ListenAndServe()
 	helper.PanicIfError("failed to start server", err)
 

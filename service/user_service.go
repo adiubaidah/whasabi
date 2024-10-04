@@ -1,11 +1,14 @@
 package service
 
 import (
-	"adiubaidah/adi-bot/model"
 	"context"
+
+	"github.com/adiubaidah/wasabi/model"
 )
 
 type UserService interface {
 	Create(ctx context.Context, request model.UserCreateRequest) *model.User
-	Find(params UserSearchParams) *model.UserDTO
+	FindById(userId int) *model.UserDTO
+	FindByUsername(username string) *model.UserDTO
+	Find(params UserSearchParams) *[]model.UserDTO
 }
