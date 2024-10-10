@@ -77,7 +77,10 @@ func (a *ProcessControllerImpl) UpsertModel(writter http.ResponseWriter, request
 	err := a.Validate.Struct(createProcessModel)
 	helper.PanicIfError("Error validating request", err)
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
+	fmt.Println("Create Model", createProcessModel)
 	searchByUserId, err := a.getSearchByUserId(request, userContext)
+	helper.PanicIfError("Error getting search by user id", err)
+	// fmt.Println("searchByUserId", searchByUserId)
 
 	result := a.ProcessService.UpsertModel(searchByUserId, *createProcessModel)
 
@@ -97,6 +100,15 @@ func (a *ProcessControllerImpl) Activate(writer http.ResponseWriter, request *ht
 
 	//get user id from request context
 	modelAi := a.ProcessService.GetModel(searchByUserId)
+
+	if modelAi.Phone == "" {
+		helper.WriteToResponseBody(writer, &model.WebResponse{
+			Code:   400,
+			Status: "error",
+			Data:   "Phone number is not set",
+		})
+		return
+	}
 	fmt.Println("Active go routine after activation", runtime.NumGoroutine())
 
 	go func() {
@@ -241,6 +253,7 @@ func (a *ProcessControllerImpl) Delete(writer http.ResponseWriter, request *http
 			Status: "error",
 			Data:   "Please deactivate the AI service first",
 		})
+		return
 	}
 	result := a.ProcessService.Delete(modelProcess.Phone)
 	helper.WriteToResponseBody(writer, &model.WebResponse{

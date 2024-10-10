@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adiubaidah/wasabi/exception"
 	"github.com/adiubaidah/wasabi/helper"
 	"github.com/adiubaidah/wasabi/middleware"
 	"github.com/adiubaidah/wasabi/model"
@@ -55,12 +56,7 @@ func (controller *AuthControllerImpl) IsAuth(writer http.ResponseWriter, request
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
 	userId := int(userContext["id"].(float64))
 	if userId == 0 {
-		helper.WriteToResponseBody(writer, &model.WebResponse{
-			Code:   401,
-			Status: "error",
-			Data:   "Unauthorized",
-		})
-		return
+		panic(exception.NewUnauthorizedError("Unauthorized"))
 	}
 
 	user := controller.UserService.FindById(userId)

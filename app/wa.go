@@ -12,7 +12,7 @@ import (
 )
 
 func GetWaClient(phone string) (*whatsmeow.Client, *sqlstore.Container) {
-	dbLog := waLog.Stdout("Database", "DEBUG", true)
+	dbLog := waLog.Stdout("Database", "ERROR", true)
 
 	dsn := fmt.Sprintf("file:session/wa-%s.db?_foreign_keys=on", phone)
 

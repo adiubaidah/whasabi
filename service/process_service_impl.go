@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -225,7 +226,7 @@ func (service *ProcessServiceImpl) GetModel(userId uint) *model.Process {
 	// Check if record was not found
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		// Panic on unexpected errors
-		panic(result.Error)
+		helper.PanicIfError("Unexpected error", result.Error)
 	}
 
 	return aiModel
@@ -236,6 +237,7 @@ func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.Create
 
 	// Find AI model by user ID
 	aiModel := &model.Process{}
+	log.Default().Println("Test")
 	result := service.DB.Where("user_id = ?", userId).Take(&aiModel)
 
 	// Check if record was not found
@@ -247,7 +249,6 @@ func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.Create
 
 	if result.RowsAffected == 0 {
 		// If no AI model exists for this user, create a new one
-		fmt.Println("Create new AI model")
 		newAiModel := &model.Process{
 			UserID: userId,
 			CreateProcessModel: model.CreateProcessModel{
@@ -262,11 +263,14 @@ func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.Create
 		}
 
 		err = service.DB.Create(&newAiModel).Error
+		if err != nil {
+			panic(err)
+		}
 		aiModel = newAiModel // Assign new AI model to return later
 	} else {
 		// Update existing AI model
 		fmt.Println("Update existing AI model")
-		err = service.DB.Model(&aiModel).Where("phone = ?", modelAi.Phone).Updates(&model.CreateProcessModel{
+		err = service.DB.Model(&aiModel).Where("user_id = ?", userId).Updates(&model.CreateProcessModel{
 			Name:        modelAi.Name,
 			Phone:       modelAi.Phone,
 			Instruction: modelAi.Instruction,
@@ -274,9 +278,8 @@ func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.Create
 			TopK:        modelAi.TopK,
 			TopP:        modelAi.TopP,
 		}).Error
+		helper.PanicIfError("Error updating AI model", err)
 	}
-
-	helper.PanicIfError("Error while upsert", err)
 
 	// Return the updated/new AI model
 	return aiModel
