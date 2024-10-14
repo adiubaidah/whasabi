@@ -8,3 +8,7 @@ __debug*
 command.sh
 tmp/
 .vscode
+api_key.txt
+db_pass.txt
+jwt_secret.txt
+.env

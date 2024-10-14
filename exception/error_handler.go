@@ -1,7 +1,7 @@
 package exception
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/adiubaidah/wasabi/helper"
@@ -10,9 +10,15 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func ErrorHandler(writer http.ResponseWriter, request *http.Request, err any) {
+func ErrorHandler(writer http.ResponseWriter, request *http.Request, err interface{}) {
+
+	log.Default().Println(err)
 
 	if notFoundError(writer, request, err) {
+		return
+	}
+
+	if badRequestError(writer, request, err) {
 		return
 	}
 
@@ -28,12 +34,13 @@ func ErrorHandler(writer http.ResponseWriter, request *http.Request, err any) {
 		return
 	}
 
-	// Log the error for debugging
-	fmt.Println("Unhandled error:", err)
 	internalServerError(writer, request, err)
+
+	// Handle unhandled errors (including generic panics)
+
 }
 
-func validationErrors(writer http.ResponseWriter, _ *http.Request, err any) bool {
+func validationErrors(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
 	exception, ok := err.(validator.ValidationErrors) //if convertion is success, ok will be true
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
@@ -46,12 +53,28 @@ func validationErrors(writer http.ResponseWriter, _ *http.Request, err any) bool
 
 		helper.WriteToResponseBody(writer, webResponse)
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
-func notFoundError(writer http.ResponseWriter, _ *http.Request, err any) bool {
+func badRequestError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
+	exception, ok := err.(BadRequestError)
+	if ok {
+		writer.Header().Set("Content-Type", "application/json")
+
+		webResponse := &model.WebResponse{
+			Code:   http.StatusBadRequest,
+			Status: "BAD REQUEST",
+			Data:   exception.Error,
+		}
+
+		helper.WriteToResponseBody(writer, webResponse)
+		return true
+	}
+	return false
+}
+
+func notFoundError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
 	exception, ok := err.(NotFoundError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
@@ -64,12 +87,11 @@ func notFoundError(writer http.ResponseWriter, _ *http.Request, err any) bool {
 
 		helper.WriteToResponseBody(writer, webResponse)
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
-func notAuthorizedError(writer http.ResponseWriter, _ *http.Request, err any) bool {
+func notAuthorizedError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
 	exception, ok := err.(UnauthorizedError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
@@ -81,13 +103,12 @@ func notAuthorizedError(writer http.ResponseWriter, _ *http.Request, err any) bo
 		}
 
 		helper.WriteToResponseBody(writer, webResponse)
-		return false
-	} else {
 		return true
 	}
+	return false
 }
 
-func forbiddenError(writer http.ResponseWriter, _ *http.Request, err any) bool {
+func forbiddenError(writer http.ResponseWriter, _ *http.Request, err interface{}) bool {
 	exception, ok := err.(ForbiddenError)
 	if ok {
 		writer.Header().Set("Content-Type", "application/json")
@@ -99,13 +120,12 @@ func forbiddenError(writer http.ResponseWriter, _ *http.Request, err any) bool {
 		}
 
 		helper.WriteToResponseBody(writer, webResponse)
-		return false
-	} else {
 		return true
 	}
+	return false
 }
 
-func internalServerError(writer http.ResponseWriter, _ *http.Request, err any) {
+func internalServerError(writer http.ResponseWriter, _ *http.Request, err interface{}) {
 	writer.Header().Set("Content-Type", "application/json")
 	webResponse := &model.WebResponse{
 		Code:   http.StatusInternalServerError,

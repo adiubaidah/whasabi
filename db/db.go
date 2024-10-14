@@ -23,7 +23,8 @@ func NewDB() *gorm.DB {
 		// PreferSimpleProtocol: ,
 	})
 	db, err := gorm.Open(dialect, &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger:         logger.Default.LogMode(logger.Info),
+		TranslateError: true,
 	})
 
 	if err != nil {

@@ -1,0 +1,38 @@
+services:
+
+  whasabi:
+    container_name: whasabi
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: adiubaidah/whasabi:latest
+    ports:
+      - protocol: tcp
+        published: ${APP_PORT}
+        target: ${APP_PORT}
+    volumes:
+      - type: volume
+        source: whasabi-qr-codes
+        target: /app/public
+        read_only: false
+      - type: volume
+        source: whasabi-session
+        target: /app/session
+        read_only: false
+    env_file:
+      - .env
+    networks:
+      - bridge
+
+volumes:
+  whasabi-qr-codes:
+    name: whasabi-qr-codes
+  whasabi-session:
+    name: whasabi-session
+
+networks:
+  bridge:
+    driver: bridge
+    
+    
+    

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,7 +127,7 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 			fmt.Println("QR event received:", evt.Event)
 			switch evt.Event {
 			case "code":
-				qrPath := fmt.Sprintf("public/qr-%s-%s.png", time.Now().Format("20060102-150405"), phone)
+				qrPath := fmt.Sprintf("public/qr-%s-%s.png", phone, time.Now().Format("20060102-150405"))
 				err := qrcode.WriteFile(evt.Code, qrcode.Medium, 256, qrPath)
 				if err != nil {
 					fmt.Println("Error generating QR code:", err)
@@ -145,6 +146,9 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 				s.mu.Lock()
 				defer s.mu.Unlock()
 				status.IsAuthenticated = true
+
+				s.deleteQrByPrefix("qr-" + phone)
+
 				s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 					Code:   200,
 					Status: "success",
@@ -164,6 +168,7 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 						"type": "timeout",
 					},
 				})
+				s.deleteQrByPrefix("qr-" + phone)
 				if stopCh, exists := app.ActiveRoutines[phone]; exists {
 					s.Deactivate(phone)
 					close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
@@ -176,6 +181,22 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 		}
 
 	}()
+}
+
+func (s *ProcessServiceImpl) deleteQrByPrefix(prefix string) {
+	err := filepath.Walk("public", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasPrefix(info.Name(), prefix) {
+			err := os.Remove(path)
+			if err != nil {
+				fmt.Println("Error deleting QR code:", err)
+			}
+		}
+		return nil
+	})
+	helper.PanicIfError("Error when deleting qr code", err)
 }
 
 // CheckActivation checks if WhatsApp service is active for the given phone number

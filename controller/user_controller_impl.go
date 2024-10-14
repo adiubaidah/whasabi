@@ -32,7 +32,7 @@ func NewUserController(userService service.UserService, processService service.P
 func (controller *UserControllerImpl) Create(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userCreateRequest := new(model.UserCreateRequest)
 	helper.ReadFromRequestBody(request, userCreateRequest)
-	user := controller.UserService.Create(request.Context(), *userCreateRequest)
+	user := controller.UserService.Create(request.Context(), userCreateRequest)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
@@ -43,8 +43,30 @@ func (controller *UserControllerImpl) Create(writer http.ResponseWriter, request
 	})
 }
 
+func (controller *UserControllerImpl) Update(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	userUpdateRequest := new(model.UserUpdateRequest)
+	helper.ReadFromRequestBody(request, userUpdateRequest)
+
+	userUpdateId := params.ByName("id")
+	id, err := strconv.Atoi(userUpdateId)
+	helper.PanicIfError("Error when convert", err)
+	userUpdateRequest.ID = id
+
+	user := controller.UserService.Update(request.Context(), userUpdateRequest)
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data: &model.UserDTO{
+			ID:       user.ID,
+			Username: user.Username,
+			IsActive: user.IsActive,
+			Role:     user.Role,
+		},
+	})
+}
+
 func (controller *UserControllerImpl) List(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-	users := controller.UserService.Find(service.UserSearchParams{})
+	users := controller.UserService.Find(&service.UserSearchParams{})
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",

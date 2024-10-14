@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"os"
 	"time"
 
@@ -30,6 +31,15 @@ func (a *AuthServiceImpl) Login(ctx context.Context, request model.UserLoginRequ
 	// Check if the user exists
 	user := model.User{}
 	a.DB.Where("username = ?", request.Username).Take(&user)
+
+	// Check if the user is active
+	log.Default().Println("User : ", user)
+
+	if !user.IsActive {
+		log.Default().Println("User is not active")
+		panic(exception.NewUnauthorizedError("User is not active"))
+	}
+
 	// Compare the password with the hashed password
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
 	if err != nil {

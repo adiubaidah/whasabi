@@ -51,6 +51,32 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 	})
 }
 
+func (controller *AuthControllerImpl) Register(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	userRegister := new(model.UserRegisterRequest)
+	helper.ReadFromRequestBody(request, userRegister)
+
+	err := controller.Validate.Struct(userRegister)
+	helper.PanicIfError("Error validating request", err)
+
+	user := controller.UserService.Create(request.Context(), &model.UserCreateRequest{
+		Username: userRegister.Username,
+		Password: userRegister.Password,
+		Role:     "user",
+		IsActive: false,
+	})
+
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data: &model.UserDTO{
+			ID:       user.ID,
+			Username: user.Username,
+			Role:     user.Role,
+			IsActive: user.IsActive,
+		},
+	})
+}
+
 func (controller *AuthControllerImpl) IsAuth(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)

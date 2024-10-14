@@ -8,6 +8,14 @@ func NewNotFoundError(error string) NotFoundError {
 	return NotFoundError{Error: error}
 }
 
+type BadRequestError struct {
+	Error string
+}
+
+func NewBadRequestError(error string) BadRequestError {
+	return BadRequestError{Error: error}
+}
+
 type ForbiddenError struct {
 	Error string
 }

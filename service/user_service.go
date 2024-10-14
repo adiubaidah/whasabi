@@ -7,8 +7,9 @@ import (
 )
 
 type UserService interface {
-	Create(ctx context.Context, request model.UserCreateRequest) *model.User
+	Create(ctx context.Context, request *model.UserCreateRequest) *model.User
+	Update(ctx context.Context, request *model.UserUpdateRequest) *model.User
 	FindById(userId int) *model.UserDTO
 	FindByUsername(username string) *model.UserDTO
-	Find(params UserSearchParams) *[]model.UserDTO
+	Find(params *UserSearchParams) *[]model.UserDTO
 }

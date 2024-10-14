@@ -22,6 +22,7 @@ func adaptHandle(h httprouter.Handle) http.HandlerFunc {
 func SetupRouter(processCtrl controller.ProcessController, userCtrl controller.UserController, authCtrl controller.AuthController) *httprouter.Router {
 	router := httprouter.New()
 	router.Handler(http.MethodPost, "/auth/login", adaptHandle(authCtrl.Login))
+	router.Handler(http.MethodPost, "/auth/register", adaptHandle(authCtrl.Register))
 	router.Handler(http.MethodGet, "/auth/is-auth", middleware.AuthMiddleware(adaptHandle(authCtrl.IsAuth)))
 	router.Handler(http.MethodPost, "/auth/logout", middleware.AuthMiddleware(adaptHandle(authCtrl.Logout)))
 
@@ -38,6 +39,7 @@ func SetupRouter(processCtrl controller.ProcessController, userCtrl controller.U
 	// Wrap User controller routes with AdminMiddleware (for admin role only)
 	router.Handler(http.MethodGet, "/user", middleware.AuthMiddleware(middleware.AdminMiddleware(adaptHandle(userCtrl.List))))
 	router.Handler(http.MethodPost, "/user", middleware.AuthMiddleware(middleware.AdminMiddleware(adaptHandle(userCtrl.Create))))
+	router.Handler(http.MethodPut, "/user/:id", middleware.AuthMiddleware(middleware.AdminMiddleware(adaptHandle(userCtrl.Update))))
 	router.Handler(http.MethodGet, "/user-ws", adaptHandle(userCtrl.WebSocket))
 	router.ServeFiles("/public/*filepath", http.Dir("public"))
 

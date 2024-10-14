@@ -51,7 +51,7 @@ func main() {
 	}
 	PORT := os.Getenv("APP_PORT")
 	server := http.Server{
-		Addr:    "localhost:" + PORT,
+		Addr:    fmt.Sprintf("%s:%s", os.Getenv("APP_HOST"), PORT),
 		Handler: corsHandler(router),
 	}
 	fmt.Println("Server has started at localhost:" + PORT)
