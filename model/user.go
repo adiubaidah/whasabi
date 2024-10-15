@@ -2,7 +2,7 @@ package model
 
 type User struct {
 	ID       int     `gorm:"primaryKey;colum:id;autoIncrement"`
-	Username string  `gorm:"colum:username;type:varchar(255);not null"`
+	Username string  `gorm:"colum:username;type:varchar(255);not null;unique"`
 	Password string  `gorm:"colum:password;type:varchar(255);not null"`
 	IsActive bool    `gorm:"colum:is_active;default:false"`
 	Role     string  `gorm:"colum:role;default:user;not null"`

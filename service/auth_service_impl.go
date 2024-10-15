@@ -33,18 +33,18 @@ func (a *AuthServiceImpl) Login(ctx context.Context, request model.UserLoginRequ
 	a.DB.Where("username = ?", request.Username).Take(&user)
 
 	// Check if the user is active
-	log.Default().Println("User : ", user)
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
+	if err != nil {
+		panic(exception.NewUnauthorizedError("Invalid username or password"))
+	}
 
+	log.Default().Println("User : ", user)
 	if !user.IsActive {
 		log.Default().Println("User is not active")
 		panic(exception.NewUnauthorizedError("User is not active"))
 	}
 
 	// Compare the password with the hashed password
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
-	if err != nil {
-		panic(exception.NewUnauthorizedError("Invalid username or password"))
-	}
 
 	// Create JWT claims
 	claims := jwt.MapClaims{
