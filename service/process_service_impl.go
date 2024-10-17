@@ -300,6 +300,8 @@ func (service *ProcessServiceImpl) UpsertModel(userId uint, modelAi model.Create
 			TopP:        modelAi.TopP,
 		}).Error
 		helper.PanicIfError("Error updating AI model", err)
+		err = service.DB.Delete(&model.History{}, "process_id = ?", aiModel.ID).Error
+		helper.PanicIfError("Error deleting history", err)
 	}
 
 	// Return the updated/new AI model

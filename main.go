@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/adiubaidah/wasabi/app"
 	"github.com/adiubaidah/wasabi/controller"
 	"github.com/adiubaidah/wasabi/db"
 	"github.com/adiubaidah/wasabi/helper"
+	"github.com/adiubaidah/wasabi/model"
 	"github.com/adiubaidah/wasabi/routes"
 	"github.com/adiubaidah/wasabi/service"
 
@@ -49,6 +51,13 @@ func main() {
 			next.ServeHTTP(w, r)
 		})
 	}
+	ticker := time.NewTicker(1 * time.Hour)
+	go func() {
+		for {
+			<-ticker.C
+			model.DeleteOldHistories(db, 3)
+		}
+	}()
 	PORT := os.Getenv("APP_PORT")
 	server := http.Server{
 		Addr:    fmt.Sprintf("%s:%s", os.Getenv("APP_HOST"), PORT),
