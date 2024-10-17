@@ -114,7 +114,6 @@ func (a *ProcessControllerImpl) Activate(writer http.ResponseWriter, request *ht
 		})
 		return
 	}
-	fmt.Println("Active go routine after activation", runtime.NumGoroutine())
 
 	go func() {
 
@@ -162,6 +161,8 @@ func (a *ProcessControllerImpl) Activate(writer http.ResponseWriter, request *ht
 			})
 
 			go a.runAIService(stopCh, modelAi)
+		} else {
+			return
 		}
 
 	}()
@@ -209,6 +210,7 @@ func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *
 		a.ProcessService.Deactivate(modelProcess.Phone)
 		close(stopCh)                                  // Close the stop channel to signal the Goroutine to stop
 		delete(app.ActiveRoutines, modelProcess.Phone) // Remove the phone from the map
+
 	} else {
 		helper.WriteToResponseBody(writer, &model.WebResponse{
 			Code:   400,
@@ -223,7 +225,6 @@ func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *
 		Status: "success",
 		Data:   "AI and WhatsApp are deactivating",
 	})
-	fmt.Println("Number of Goroutines after deactivation:", runtime.NumGoroutine())
 }
 
 func (a *ProcessControllerImpl) CheckActivation(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
@@ -279,5 +280,13 @@ func (a *ProcessControllerImpl) Delete(writer http.ResponseWriter, request *http
 		Code:   200,
 		Status: "success",
 		Data:   result,
+	})
+}
+
+func (a *ProcessControllerImpl) CheckGoRoutine(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	helper.WriteToResponseBody(writer, &model.WebResponse{
+		Code:   200,
+		Status: "success",
+		Data:   runtime.NumGoroutine(),
 	})
 }

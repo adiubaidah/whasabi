@@ -16,4 +16,5 @@ type ProcessController interface {
 
 	CheckActivation(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 	CheckAuthentication(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
+	CheckGoRoutine(writer http.ResponseWriter, request *http.Request, params httprouter.Params)
 }

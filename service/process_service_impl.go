@@ -90,28 +90,23 @@ func (s *ProcessServiceImpl) Activate(phone string) *UserWaStatus {
 	}
 
 	// Set the current status variable for convenience
+	fmt.Println("Test")
 	status := s.UserStatusMap[phone]
-	status.IsAuthenticated = status.WaClient.Store.ID != nil
+	status.IsAuthenticated = s.CheckAuthentication(phone)
 	status.IsActive = true
-	fmt.Println("Wa Status", status.IsAuthenticated)
+	fmt.Println("Test 2")
 
 	// If not authenticated, handle the authentication process
 	if !status.IsAuthenticated {
 		s.handleQRCodeAuthentication(phone, status, s.DB)
 	} else {
 		status.WaClient.Connect()
-
 		s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 			Code:   200,
 			Status: "success",
 			Data:   "Connection Successful!",
 		})
 	}
-	err := s.DB.Model(&model.Process{}).Where("phone = ?", phone).Updates(&model.Process{
-		IsAuthenticated: status.IsAuthenticated,
-	}).Error
-
-	helper.PanicIfError("Error updating AI model", err)
 
 	return status
 }
@@ -124,60 +119,66 @@ func (s *ProcessServiceImpl) handleQRCodeAuthentication(phone string, status *Us
 	err = status.WaClient.Connect()
 	helper.PanicIfError("Error connecting to WhatsApp", err)
 	go func() {
-		for evt := range qrChan {
-			fmt.Println("QR event received:", evt.Event)
-			switch evt.Event {
-			case "code":
-				qrPath := fmt.Sprintf("public/qr-%s-%s.png", phone, time.Now().Format("20060102-150405"))
-				err := qrcode.WriteFile(evt.Code, qrcode.Medium, 256, qrPath)
-				if err != nil {
-					fmt.Println("Error generating QR code:", err)
-				} else {
-					fmt.Printf("QR code generated for phone %s. Scan it using WhatsApp!\n", phone)
+		for {
+			select {
+			case evt := <-qrChan:
+				fmt.Println("QR event received:", evt.Event)
+				switch evt.Event {
+				case "code":
+					qrPath := fmt.Sprintf("public/qr-%s-%s.png", phone, time.Now().Format("20060102-150405"))
+					err := qrcode.WriteFile(evt.Code, qrcode.Medium, 256, qrPath)
+					if err != nil {
+						fmt.Println("Error generating QR code:", err)
+					} else {
+						fmt.Printf("QR code generated for phone %s. Scan it using WhatsApp!\n", phone)
+						s.WebSocketHub.SendMessage(phone, &model.WebResponse{
+							Code:   200,
+							Status: "success",
+							Data: map[string]string{
+								"type":   "authenticating",
+								"qrPath": qrPath,
+							},
+						})
+					}
+				case "success":
+					s.mu.Lock()
+					defer s.mu.Unlock()
+					status.IsAuthenticated = true
+
+					s.deleteQrByPrefix("qr-" + phone)
+
 					s.WebSocketHub.SendMessage(phone, &model.WebResponse{
 						Code:   200,
 						Status: "success",
 						Data: map[string]string{
-							"type":   "authenticating",
-							"qrPath": qrPath,
+							"type": "authenticated",
 						},
 					})
+					db.Model(&model.Process{}).Where("phone = ?", phone).Update("is_authenticated", true)
+					return
+				case "timeout":
+					fmt.Println("Timeout")
+					status.WaClient.Disconnect()
+					s.WebSocketHub.SendMessage(phone, &model.WebResponse{
+						Code:   408,
+						Status: "error",
+						Data: map[string]string{
+							"type": "timeout",
+						},
+					})
+					s.deleteQrByPrefix("qr-" + phone)
+					if stopCh, exists := app.ActiveRoutines[phone]; exists {
+						s.Deactivate(phone)
+						close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
+						delete(app.ActiveRoutines, phone) // Remove the phone from the map
+					}
+					return
+				default:
+					fmt.Println("Unhandled QR event:", evt.Event)
 				}
-			case "success":
-				s.mu.Lock()
-				defer s.mu.Unlock()
-				status.IsAuthenticated = true
-
-				s.deleteQrByPrefix("qr-" + phone)
-
-				s.WebSocketHub.SendMessage(phone, &model.WebResponse{
-					Code:   200,
-					Status: "success",
-					Data: map[string]string{
-						"type": "authenticated",
-					},
-				})
-				db.Model(&model.Process{}).Where("phone = ?", phone).Update("is_authenticated", true)
+			case <-app.ActiveRoutines[phone]:
+				fmt.Println("Stopping Goroutine for phone:", phone)
 				return
-			case "timeout":
-				fmt.Println("Timeout")
-				status.WaClient.Disconnect()
-				s.WebSocketHub.SendMessage(phone, &model.WebResponse{
-					Code:   408,
-					Status: "error",
-					Data: map[string]string{
-						"type": "timeout",
-					},
-				})
-				s.deleteQrByPrefix("qr-" + phone)
-				if stopCh, exists := app.ActiveRoutines[phone]; exists {
-					s.Deactivate(phone)
-					close(stopCh)                     // Close the stop channel to signal the Goroutine to stop
-					delete(app.ActiveRoutines, phone) // Remove the phone from the map
-				}
-				return
-			default:
-				fmt.Println("Unhandled QR event:", evt.Event)
 			}
 		}
 
@@ -217,8 +218,6 @@ func (s *ProcessServiceImpl) Deactivate(phone string) bool {
 }
 
 func (s *ProcessServiceImpl) CheckActivation(phone string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Check if status exists and return its IsActive status
 	if status, exists := s.UserStatusMap[phone]; exists {
@@ -228,8 +227,6 @@ func (s *ProcessServiceImpl) CheckActivation(phone string) bool {
 }
 
 func (s *ProcessServiceImpl) CheckAuthentication(phone string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	modelProcess := &model.Process{}
 	// Check if status exists and return its IsAuthenticated status
 	err := s.DB.Take(modelProcess, "phone = ?", phone).Error

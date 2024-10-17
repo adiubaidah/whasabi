@@ -35,6 +35,7 @@ func SetupRouter(processCtrl controller.ProcessController, userCtrl controller.U
 	router.Handler(http.MethodPost, "/process/deactivate", middleware.AuthMiddleware(adaptHandle(processCtrl.Deactivate)))
 	router.Handler(http.MethodGet, "/process/check-activation", middleware.AuthMiddleware(adaptHandle(processCtrl.CheckActivation)))
 	router.Handler(http.MethodGet, "/process/check-authentication", middleware.AuthMiddleware(adaptHandle(processCtrl.CheckAuthentication)))
+	router.Handler(http.MethodGet, "/process/check-goroutine", adaptHandle(processCtrl.CheckGoRoutine))
 
 	// Wrap User controller routes with AdminMiddleware (for admin role only)
 	router.Handler(http.MethodGet, "/user", middleware.AuthMiddleware(middleware.AdminMiddleware(adaptHandle(userCtrl.List))))
