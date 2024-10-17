@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/adiubaidah/wasabi/app"
+	"github.com/adiubaidah/wasabi/exception"
 	"github.com/adiubaidah/wasabi/helper"
 	"github.com/adiubaidah/wasabi/middleware"
 	"github.com/adiubaidah/wasabi/model"
@@ -61,7 +62,9 @@ func (a *ProcessControllerImpl) GetModel(writer http.ResponseWriter, request *ht
 
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
 	searchByUserId, err := a.getSearchByUserId(request, userContext)
-	helper.PanicIfError("Error getting search by user id", err)
+	if err != nil {
+		panic(exception.NewNotFoundError("Error find by user id"))
+	}
 
 	processModel := a.ProcessService.GetModel(searchByUserId)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
@@ -79,7 +82,9 @@ func (a *ProcessControllerImpl) UpsertModel(writter http.ResponseWriter, request
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
 	fmt.Println("Create Model", createProcessModel)
 	searchByUserId, err := a.getSearchByUserId(request, userContext)
-	helper.PanicIfError("Error getting search by user id", err)
+	if err != nil {
+		panic(exception.NewNotFoundError("Error find by user id"))
+	}
 	// fmt.Println("searchByUserId", searchByUserId)
 
 	result := a.ProcessService.UpsertModel(searchByUserId, *createProcessModel)
@@ -158,12 +163,21 @@ func (a *ProcessControllerImpl) Activate(writer http.ResponseWriter, request *ht
 
 			go a.runAIService(stopCh, modelAi)
 		}
+
 	}()
 
+	isAuthenticated := modelAi.IsAuthenticated
+	isActivated := a.ProcessService.CheckActivation(modelAi.Phone)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
 		Code:   200,
 		Status: "success",
-		Data:   "AI and WhatsApp are activating",
+		Data: map[string]any{
+			"phone": modelAi.Phone,
+			"status": map[string]bool{
+				"is_authenticated": isAuthenticated,
+				"is_activated":     isActivated,
+			},
+		},
 	})
 
 }
@@ -215,7 +229,9 @@ func (a *ProcessControllerImpl) Deactivate(writer http.ResponseWriter, request *
 func (a *ProcessControllerImpl) CheckActivation(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
 	searchByUserId, err := a.getSearchByUserId(request, userContext)
-	helper.PanicIfError("Error getting search by user id", err)
+	if err != nil {
+		panic(exception.NewNotFoundError("Error find by user id"))
+	}
 
 	modelProcess := a.ProcessService.GetModel(searchByUserId)
 	status := a.ProcessService.CheckActivation(modelProcess.Phone)
@@ -230,7 +246,9 @@ func (a *ProcessControllerImpl) CheckActivation(writer http.ResponseWriter, requ
 func (a *ProcessControllerImpl) CheckAuthentication(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
 	searchByUserId, err := a.getSearchByUserId(request, userContext)
-	helper.PanicIfError("Error getting search by user id", err)
+	if err != nil {
+		panic(exception.NewNotFoundError("Error find by user id"))
+	}
 
 	modelProcess := a.ProcessService.GetModel(searchByUserId)
 	status := a.ProcessService.CheckAuthentication(modelProcess.Phone)
@@ -240,11 +258,12 @@ func (a *ProcessControllerImpl) CheckAuthentication(writer http.ResponseWriter, 
 		Data:   status,
 	})
 }
-
 func (a *ProcessControllerImpl) Delete(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 	userContext := request.Context().Value(middleware.UserContext).(jwt.MapClaims)
 	searchByUserId, err := a.getSearchByUserId(request, userContext)
-	helper.PanicIfError("Error getting search by user id", err)
+	if err != nil {
+		panic(exception.NewNotFoundError("Error find by user id"))
+	}
 
 	modelProcess := a.ProcessService.GetModel(searchByUserId)
 	if a.ProcessService.CheckActivation(modelProcess.Phone) {

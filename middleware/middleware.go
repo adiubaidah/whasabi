@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/adiubaidah/wasabi/exception"
 	"github.com/adiubaidah/wasabi/helper"
@@ -20,7 +21,7 @@ const UserContext contextKey = "user"
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("token")
+		cookie, err := r.Cookie(os.Getenv("COOKIE_NAME"))
 		if err != nil {
 			panic(exception.NewUnauthorizedError("Unauthorized"))
 		}

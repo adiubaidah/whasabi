@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/adiubaidah/wasabi/exception"
@@ -36,12 +37,19 @@ func (controller *AuthControllerImpl) Login(writer http.ResponseWriter, request 
 	err := controller.Validate.Struct(userLoginRequest)
 	helper.PanicIfError("Error validating request", err)
 	token := controller.AuthService.Login(request.Context(), *userLoginRequest)
+	cookieSameSite := http.SameSiteDefaultMode
+
+	if os.Getenv("ENVIROMENT") == "production" {
+		cookieSameSite = http.SameSiteNoneMode
+	}
 
 	cookie := http.Cookie{
-		Name:    "token",
-		Value:   token,
-		Path:    "/",
-		Expires: time.Now().Add(time.Hour * 72),
+		Name:     os.Getenv("COOKIE_NAME"),
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour * 72),
+		SameSite: cookieSameSite,
+		Domain:   os.Getenv("COOKIE_DOMAIN"),
 	}
 	http.SetCookie(writer, &cookie)
 	helper.WriteToResponseBody(writer, &model.WebResponse{
@@ -95,13 +103,18 @@ func (controller *AuthControllerImpl) IsAuth(writer http.ResponseWriter, request
 }
 
 func (controller *AuthControllerImpl) Logout(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-
+	cookieSameSite := http.SameSiteDefaultMode
+	if os.Getenv("ENVIROMENT") == "production" {
+		cookieSameSite = http.SameSiteNoneMode
+	}
 	// Delete the token cookie
 	cookie := http.Cookie{
-		Name:    "token",
-		Value:   "",
-		Expires: time.Unix(0, 0),
-		Path:    "/",
+		Name:     os.Getenv("COOKIE_NAME"),
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		Path:     "/",
+		SameSite: cookieSameSite,
+		Domain:   os.Getenv("COOKIE_DOMAIN"),
 	}
 
 	http.SetCookie(writer, &cookie)

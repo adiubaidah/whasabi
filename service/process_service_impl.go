@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -232,7 +233,9 @@ func (s *ProcessServiceImpl) CheckAuthentication(phone string) bool {
 	modelProcess := &model.Process{}
 	// Check if status exists and return its IsAuthenticated status
 	err := s.DB.Take(modelProcess, "phone = ?", phone).Error
-	helper.PanicIfError("Error saat mengambil AI model:", err)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false
+	}
 
 	return modelProcess.IsAuthenticated
 }
@@ -346,9 +349,7 @@ func (service *ProcessServiceImpl) Delete(phone string) bool {
 	if _, err := os.Stat(filePath); err == nil {
 		// Attempt to delete the file
 		err = os.Remove(filePath)
-		if err != nil {
-			helper.PanicIfError("Error saat menghapus file sesi:", err)
-		}
+		helper.PanicIfError("Error saat menghapus file sesi:", err)
 	}
 
 	return true
